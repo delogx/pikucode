@@ -136,7 +136,9 @@ it.layer(NodeServices.layer)("sync-reference-repos", (it) => {
       yield* fs.makeDirectory(path.dirname(sourcePath), { recursive: true });
       yield* fs.writeFileString(sourcePath, "{");
 
-      const error = yield* resolveReferenceRepoRef(jsonSourceRepo, rootDir, false).pipe(Effect.flip);
+      const error = yield* resolveReferenceRepoRef(jsonSourceRepo, rootDir, false).pipe(
+        Effect.flip,
+      );
 
       if (error._tag !== "ReferenceRepoVersionSourceError") {
         assert.fail(`Unexpected error: ${error._tag}`);
@@ -160,7 +162,9 @@ it.layer(NodeServices.layer)("sync-reference-repos", (it) => {
       yield* fs.makeDirectory(path.dirname(sourcePath), { recursive: true });
       yield* fs.writeFileString(sourcePath, '{"dependencies":{}}');
 
-      const error = yield* resolveReferenceRepoRef(jsonSourceRepo, rootDir, false).pipe(Effect.flip);
+      const error = yield* resolveReferenceRepoRef(jsonSourceRepo, rootDir, false).pipe(
+        Effect.flip,
+      );
 
       if (error._tag !== "ReferenceRepoVersionResolutionError") {
         assert.fail(`Unexpected error: ${error._tag}`);
@@ -184,7 +188,10 @@ it.layer(NodeServices.layer)("sync-reference-repos", (it) => {
         '{"dependencies":{"example":"2.0.0-beta.49"}}',
       );
 
-      assert.equal(yield* resolveReferenceRepoRef(jsonSourceRepo, rootDir, false), "v2.0.0-beta.49");
+      assert.equal(
+        yield* resolveReferenceRepoRef(jsonSourceRepo, rootDir, false),
+        "v2.0.0-beta.49",
+      );
     }),
   );
 

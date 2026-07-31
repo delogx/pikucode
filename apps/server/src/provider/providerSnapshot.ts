@@ -10,7 +10,6 @@ import type {
 } from "@piku/contracts";
 import * as Effect from "effect/Effect";
 import * as PlatformError from "effect/PlatformError";
-import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { normalizeCustomModelSlug } from "@piku/shared/model";

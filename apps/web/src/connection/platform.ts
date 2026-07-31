@@ -26,7 +26,6 @@ import { managedRelayAccountChanges, managedRelaySessionAtom } from "@piku/clien
 import { EnvironmentRpcRequestObserver } from "@piku/client-runtime/rpc";
 import {
   AuthStandardClientScopes,
-  type DesktopBridge,
   type DesktopEnvironmentBootstrap,
   PRIMARY_LOCAL_ENVIRONMENT_ID,
 } from "@piku/contracts";

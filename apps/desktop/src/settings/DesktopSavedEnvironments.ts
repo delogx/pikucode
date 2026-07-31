@@ -205,9 +205,7 @@ function toSavedEnvironmentStorageRecord(
     createdAt: record.createdAt,
     lastConnectedAt: record.lastConnectedAt,
   };
-  const metadata = {
-    ...(record.relayManaged ? { relayManaged: record.relayManaged } : {}),
-  };
+  const metadata = record.relayManaged ? { relayManaged: record.relayManaged } : {};
   return Option.match(encryptedBearerToken, {
     onNone: () => ({ ...nextRecord, ...metadata }),
     onSome: (value) => ({ ...nextRecord, ...metadata, encryptedBearerToken: value }),

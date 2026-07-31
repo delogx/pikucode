@@ -1,5 +1,4 @@
 import {
-  DesktopUpdateChannelSchema,
   type DesktopRuntimeInfo,
   type DesktopUpdateActionResult,
   type DesktopUpdateChannel,
@@ -292,13 +291,15 @@ export const make = Effect.gen(function* () {
   });
 
   // Nightly is the only channel, so prerelease artifacts are always in scope.
-  const applyAutoUpdaterChannel = Effect.fn("desktop.updates.applyAutoUpdaterChannel")(function* () {
-    yield* electronUpdater.setChannel(DESKTOP_UPDATE_CHANNEL);
-    yield* electronUpdater.setAllowPrerelease(true);
-    yield* electronUpdater.setAllowDowngrade(true);
-    yield* electronUpdater.setFullChangelog(true);
-    yield* logUpdaterInfo("using update channel", { channel: DESKTOP_UPDATE_CHANNEL });
-  });
+  const applyAutoUpdaterChannel = Effect.fn("desktop.updates.applyAutoUpdaterChannel")(
+    function* () {
+      yield* electronUpdater.setChannel(DESKTOP_UPDATE_CHANNEL);
+      yield* electronUpdater.setAllowPrerelease(true);
+      yield* electronUpdater.setAllowDowngrade(true);
+      yield* electronUpdater.setFullChangelog(true);
+      yield* logUpdaterInfo("using update channel", { channel: DESKTOP_UPDATE_CHANNEL });
+    },
+  );
 
   const shouldEnableAutoUpdates = resolveDisabledReason.pipe(Effect.map(Option.isNone));
 

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { ModelCapabilities } from "@piku/contracts";
 import { createModelCapabilities } from "@piku/shared/model";
-import * as Effect from "effect/Effect";
 import * as PlatformError from "effect/PlatformError";
 
 import { isCommandMissingCause, providerModelsFromSettings } from "./providerSnapshot.ts";

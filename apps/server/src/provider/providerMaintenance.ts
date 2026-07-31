@@ -2,9 +2,9 @@ import {
   ProviderDriverKind,
   type ServerProvider,
   type ServerProviderVersionAdvisory,
-} from "@t3tools/contracts";
-import { compareSemverVersions } from "@t3tools/shared/semver";
-import { resolveCommandPath } from "@t3tools/shared/shell";
+} from "@piku/contracts";
+import { compareSemverVersions } from "@piku/shared/semver";
+import { resolveCommandPath } from "@piku/shared/shell";
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -32,7 +32,6 @@ const CommandLookupEnvConfig = Config.all({
   PATH: Config.string("PATH").pipe(Config.option),
   Path: Config.string("Path").pipe(Config.option),
   path: Config.string("path").pipe(Config.option),
-  PATHEXT: Config.string("PATHEXT").pipe(Config.option),
 }).pipe(Config.map(compactEnv));
 
 const readCommandLookupEnv = CommandLookupEnvConfig.pipe(Effect.orElseSucceed(() => ({})));
@@ -81,7 +80,7 @@ export interface ProviderVersionCacheEntry {
 }
 
 export const ProviderVersionCache = Context.Reference<Map<string, ProviderVersionCacheEntry>>(
-  "@t3tools/server/providerMaintenance/ProviderVersionCache",
+  "@piku/server/providerMaintenance/ProviderVersionCache",
   {
     defaultValue: () => new Map(),
   },
@@ -218,7 +217,7 @@ export function hasPathSeparator(value: string): boolean {
 }
 
 export function normalizeCommandPath(commandPath: string): string {
-  return commandPath.replaceAll("\\", "/").toLowerCase();
+  return commandPath.toLowerCase();
 }
 
 function isBunGlobalCommandPath(commandPath: string): boolean {
@@ -235,7 +234,6 @@ function isPnpmGlobalCommandPath(commandPath: string): boolean {
     normalized.includes("/.local/share/pnpm/") ||
     normalized.includes("/library/pnpm/") ||
     normalized.includes("/local/share/pnpm/") ||
-    normalized.includes("/appdata/local/pnpm/") ||
     normalized.includes("/pnpm/global/")
   );
 }

@@ -1,4 +1,4 @@
-import { EditorId, type EnvironmentId, type ResolvedKeybindingsConfig } from "@t3tools/contracts";
+import { EditorId, type EnvironmentId, type ResolvedKeybindingsConfig } from "@piku/contracts";
 import { memo, useCallback, useEffect, useMemo } from "react";
 import { isOpenFavoriteEditorShortcut, shortcutLabelForCommand } from "../../keybindings";
 import { usePreferredEditor } from "../../editorPreferences";
@@ -31,7 +31,7 @@ import {
   RustRoverIcon,
   WebStormIcon,
 } from "../JetBrainsIcons";
-import { cn, isMacPlatform, isWindowsPlatform } from "~/lib/utils";
+import { cn, isMacPlatform } from "~/lib/utils";
 import { shellEnvironment } from "~/state/shell";
 import { useAtomCommand } from "~/state/use-atom-command";
 
@@ -165,11 +165,7 @@ const resolveOptions = (platform: string, availableEditors: ReadonlyArray<Editor
       kind: "brand",
     },
     {
-      label: isMacPlatform(platform)
-        ? "Finder"
-        : isWindowsPlatform(platform)
-          ? "Explorer"
-          : "Files",
+      label: isMacPlatform(platform) ? "Finder" : "Files",
       Icon: FolderClosedIcon,
       value: "file-manager",
       kind: "generic",

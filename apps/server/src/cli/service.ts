@@ -48,17 +48,17 @@ export function formatServiceStatus(
   cliVersion: string,
 ): string {
   if (!status.supported) {
-    return "T3 Code service\n  Status: unavailable on this machine\n  Supported on: Linux with systemd";
+    return "Piku Code service\n  Status: unavailable on this machine\n  Supported on: Linux with systemd";
   }
   if (!status.installed) {
-    return "T3 Code service\n  Status: not installed\n  Next: Run `t3 service install`.";
+    return "Piku Code service\n  Status: not installed\n  Next: Run `piku service install`.";
   }
   return [
-    "T3 Code service",
-    `  Status: ${status.current ? `installed · t3@${cliVersion}` : "needs an update or repair"}`,
+    "Piku Code service",
+    `  Status: ${status.current ? `installed · piku@${cliVersion}` : "needs an update or repair"}`,
     `  Unit: ${status.unitPath}`,
     `  Logs: ${status.logPath}`,
-    ...(status.current ? [] : ["  Next: Run `npx t3@latest service update`."]),
+    ...(status.current ? [] : ["  Next: Run `npx piku@nightly service update`."]),
   ].join("\n");
 }
 
@@ -72,7 +72,7 @@ const runServiceCommand = Effect.fn("cli.service.run")(function* <A, E>(
 });
 
 const serviceInstallCommand = Command.make("install", projectLocationFlags).pipe(
-  Command.withDescription("Install T3 Code as a background service for this user."),
+  Command.withDescription("Install Piku Code as a background service for this user."),
   Command.withHandler((flags) =>
     runServiceCommand(
       flags,
@@ -80,12 +80,12 @@ const serviceInstallCommand = Command.make("install", projectLocationFlags).pipe
         const result = yield* reconcileService();
         if (!result.changed) {
           yield* Console.log(
-            `T3 Code service is already installed with t3@${packageJson.version}.`,
+            `Piku Code service is already installed with piku@${packageJson.version}.`,
           );
           return;
         }
         yield* Console.log(
-          `${result.previouslyInstalled ? "Updated" : "Installed"} T3 Code service with t3@${packageJson.version}.\nLogs: ${result.plan.logPath}`,
+          `${result.previouslyInstalled ? "Updated" : "Installed"} Piku Code service with piku@${packageJson.version}.\nLogs: ${result.plan.logPath}`,
         );
       }),
     ),
@@ -94,7 +94,7 @@ const serviceInstallCommand = Command.make("install", projectLocationFlags).pipe
 
 const serviceUpdateCommand = Command.make("update", projectLocationFlags).pipe(
   Command.withDescription(
-    "Update or repair the background service using this CLI version. Use `npx t3@latest service update` for the latest release.",
+    "Update or repair the background service using this CLI version. Use `npx piku@nightly service update` for the newest release.",
   ),
   Command.withHandler((flags) =>
     runServiceCommand(
@@ -102,11 +102,11 @@ const serviceUpdateCommand = Command.make("update", projectLocationFlags).pipe(
       Effect.gen(function* () {
         const result = yield* reconcileService();
         if (!result.changed) {
-          yield* Console.log(`T3 Code service is already using t3@${packageJson.version}.`);
+          yield* Console.log(`Piku Code service is already using piku@${packageJson.version}.`);
           return;
         }
         yield* Console.log(
-          `${result.previouslyInstalled ? "Updated" : "Installed"} T3 Code service with t3@${packageJson.version}.\nLogs: ${result.plan.logPath}`,
+          `${result.previouslyInstalled ? "Updated" : "Installed"} Piku Code service with piku@${packageJson.version}.\nLogs: ${result.plan.logPath}`,
         );
       }),
     ),
@@ -114,7 +114,7 @@ const serviceUpdateCommand = Command.make("update", projectLocationFlags).pipe(
 );
 
 const serviceUninstallCommand = Command.make("uninstall", projectLocationFlags).pipe(
-  Command.withDescription("Stop and remove the T3 Code background service."),
+  Command.withDescription("Stop and remove the Piku Code background service."),
   Command.withHandler((flags) =>
     runServiceCommand(
       flags,
@@ -122,7 +122,7 @@ const serviceUninstallCommand = Command.make("uninstall", projectLocationFlags).
         const service = yield* BootService.BootService;
         const removed = yield* service.uninstall;
         yield* Console.log(
-          removed ? "Removed the T3 Code service." : "T3 Code service is not installed.",
+          removed ? "Removed the Piku Code service." : "Piku Code service is not installed.",
         );
       }),
     ),
@@ -130,7 +130,7 @@ const serviceUninstallCommand = Command.make("uninstall", projectLocationFlags).
 );
 
 const serviceStatusCommand = Command.make("status", projectLocationFlags).pipe(
-  Command.withDescription("Show whether the T3 Code background service is installed."),
+  Command.withDescription("Show whether the Piku Code background service is installed."),
   Command.withHandler((flags) =>
     runServiceCommand(
       flags,
@@ -149,15 +149,15 @@ export const offerServiceDuringOnboarding = Effect.gen(function* () {
     return false;
   }
   if (installed && current) {
-    yield* Console.log("T3 Code is already set up to run in the background on this machine.");
+    yield* Console.log("Piku Code is already set up to run in the background on this machine.");
     return true;
   }
   const wanted = yield* Prompt.run(
     Prompt.confirm({
       message: installed
-        ? "The installed T3 Code service needs an update or repair. Update it now?"
-        : "Run T3 Code in the background whenever this machine boots? " +
-          "It stays reachable through T3 Connect even after you log out.",
+        ? "The installed Piku Code service needs an update or repair. Update it now?"
+        : "Run Piku Code in the background whenever this machine boots? " +
+          "It stays reachable through Piku Connect even after you log out.",
       initial: true,
     }),
   );
@@ -189,7 +189,7 @@ export const recoverServiceOnboardingOffer = <R>(
   );
 
 export const serviceCommand = Command.make("service").pipe(
-  Command.withDescription("Manage the T3 Code background service."),
+  Command.withDescription("Manage the Piku Code background service."),
   Command.withSubcommands([
     serviceInstallCommand,
     serviceUninstallCommand,

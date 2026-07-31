@@ -1,15 +1,16 @@
-export type LoopbackAuthorizationStage = "dev" | "nightly" | "latest";
+/** Nightly is the only published channel; `dev` is an unbundled checkout, where
+    the build define is absent. */
+export type LoopbackAuthorizationStage = "dev" | "nightly";
 
-declare const __T3CODE_BUILD_CHANNEL__: "nightly" | "latest" | undefined;
+declare const __PIKU_BUILD_CHANNEL__: "nightly" | undefined;
 
 export function resolveLoopbackAuthorizationStage(): LoopbackAuthorizationStage {
-  return typeof __T3CODE_BUILD_CHANNEL__ === "undefined" ? "dev" : __T3CODE_BUILD_CHANNEL__;
+  return typeof __PIKU_BUILD_CHANNEL__ === "undefined" ? "dev" : __PIKU_BUILD_CHANNEL__;
 }
 
 const stageBrands = {
-  dev: "T3 Code (Dev)",
-  nightly: "T3 Code (Nightly)",
-  latest: "T3 Code",
+  dev: "Piku Code (Dev)",
+  nightly: "Piku Code (Nightly)",
 } as const satisfies Record<LoopbackAuthorizationStage, string>;
 
 export function renderLoopbackAuthorizationCompleteHtml(
@@ -23,7 +24,7 @@ export function renderLoopbackAuthorizationCompleteHtml(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>T3 Connect authorization complete</title>
+    <title>Piku Connect authorization complete</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -56,11 +57,6 @@ export function renderLoopbackAuthorizationCompleteHtml(
         overflow: hidden;
         padding: 22px 24px;
         color: white;
-      }
-      .stage-latest {
-        background:
-          radial-gradient(circle at 76% 18%, rgba(136, 204, 255, 0.52), transparent 38%),
-          linear-gradient(135deg, #2468df, #172f82);
       }
       .stage-dev {
         background: linear-gradient(145deg, #5ab8fa 0%, #347ff8 46%, #1939bd 100%);
@@ -147,7 +143,7 @@ export function renderLoopbackAuthorizationCompleteHtml(
       <section class="content">
         <p class="eyebrow">Browser authorization complete</p>
         <h1>You're connected</h1>
-        <p class="description">Return to your terminal to finish setting up T3 Connect. You can close this window.</p>
+        <p class="description">Return to your terminal to finish setting up Piku Connect. You can close this window.</p>
       </section>
     </main>
   </body>

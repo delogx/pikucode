@@ -7,7 +7,7 @@ import "vite-plus/test/config";
 import { defineConfig } from "vite-plus";
 import pkg from "./package.json" with { type: "json" };
 
-import { DEV_PROXIED_PATH_PREFIXES } from "@t3tools/shared/devProxy";
+import { DEV_PROXIED_PATH_PREFIXES } from "@piku/shared/devProxy";
 
 import { loadRepoEnv } from "../../scripts/lib/public-config";
 
@@ -21,14 +21,14 @@ Object.assign(process.env, repoEnv);
 // pins the client to localhost and breaks every non-localhost origin — the
 // exact failure single-origin mode exists to prevent, and an invisible one
 // since the page still loads.
-const isSingleOriginDev = process.env.T3CODE_SINGLE_ORIGIN_DEV === "1";
+const isSingleOriginDev = process.env.PIKU_SINGLE_ORIGIN_DEV === "1";
 
 const port = Number(process.env.PORT ?? 5733);
 const explicitHost = process.env.HOST?.trim();
 const host = explicitHost || "localhost";
 const configuredWsUrl = isSingleOriginDev ? undefined : process.env.VITE_WS_URL?.trim();
 const configuredHttpUrl = isSingleOriginDev ? undefined : process.env.VITE_HTTP_URL?.trim();
-const configuredRelayUrl = repoEnv.VITE_T3CODE_RELAY_URL?.trim() || "";
+const configuredRelayUrl = repoEnv.VITE_PIKU_RELAY_URL?.trim() || "";
 const configuredClerkPublishableKey = repoEnv.VITE_CLERK_PUBLISHABLE_KEY?.trim() || "";
 const configuredClerkJwtTemplate = repoEnv.VITE_CLERK_JWT_TEMPLATE?.trim() || "";
 const configuredClerkCliOAuthClientId = repoEnv.VITE_CLERK_CLI_OAUTH_CLIENT_ID?.trim() || "";
@@ -50,12 +50,12 @@ const configuredHostedAppUrl = (() => {
   }
   return undefined;
 })();
-const sourcemapEnv = process.env.T3CODE_WEB_SOURCEMAP?.trim().toLowerCase();
+const sourcemapEnv = process.env.PIKU_WEB_SOURCEMAP?.trim().toLowerCase();
 
 // Vite 8.1's experimental bundled dev mode: serves rolldown-bundled chunks in
 // dev for much faster startup/reload on large module graphs, with HMR served
-// as hot patches. Opt-in while experimental: T3CODE_BUNDLED_DEV=1 pnpm dev:web
-const bundledDevEnv = process.env.T3CODE_BUNDLED_DEV?.trim().toLowerCase();
+// as hot patches. Opt-in while experimental: PIKU_BUNDLED_DEV=1 pnpm dev:web
+const bundledDevEnv = process.env.PIKU_BUNDLED_DEV?.trim().toLowerCase();
 const bundledDev = bundledDevEnv === "1" || bundledDevEnv === "true";
 
 const buildSourcemap: boolean | "hidden" =
@@ -83,8 +83,8 @@ function resolveDevProxyTarget(
   wsUrl: string | undefined,
 ): string | undefined {
   // Browser dev is single-origin: the backend port is proxied through this
-  // server so the app works from any origin (localhost, tailnet, LAN, phone).
-  // T3CODE_PORT is set by scripts/dev-runner.ts for every non-desktop mode.
+  // server so the app works from any origin (localhost, LAN, phone).
+  // PIKU_PORT is set by scripts/dev-runner.ts for every non-desktop mode.
   const port = Number(backendPort?.trim());
   if (Number.isInteger(port) && port > 0) {
     return `http://localhost:${port}/`;
@@ -112,17 +112,16 @@ function resolveDevProxyTarget(
   }
 }
 
-const devProxyTarget = resolveDevProxyTarget(process.env.T3CODE_PORT, configuredWsUrl);
+const devProxyTarget = resolveDevProxyTarget(process.env.PIKU_PORT, configuredWsUrl);
 
 // Vite rejects requests whose Host header isn't localhost, which blocks sharing
-// a dev server over Tailscale/LAN. Tailnet names are safe to allow wholesale:
-// the DNS is controlled by tailscale, so they can't be rebound by an attacker.
-// Anything else (ngrok, a LAN IP alias) goes through the env var.
-const configuredAllowedHosts = (process.env.T3CODE_DEV_ALLOWED_HOSTS ?? "")
+// a dev server over the LAN. Any other host you want to reach the dev server by
+// (a LAN IP alias, ngrok, a VPN name) has to be listed in the env var.
+const configuredAllowedHosts = (process.env.PIKU_DEV_ALLOWED_HOSTS ?? "")
   .split(",")
   .map((entry) => entry.trim())
   .filter((entry) => entry.length > 0);
-const allowedHosts = [".ts.net", ...configuredAllowedHosts];
+const allowedHosts = configuredAllowedHosts;
 
 export default defineConfig(() => {
   return {
@@ -160,7 +159,7 @@ export default defineConfig(() => {
       // under single-origin dev this must stay empty even when a `.env`
       // supplies it, so the client falls back to window.location.origin.
       "import.meta.env.VITE_HTTP_URL": JSON.stringify(configuredHttpUrl ?? ""),
-      "import.meta.env.VITE_T3CODE_RELAY_URL": JSON.stringify(configuredRelayUrl),
+      "import.meta.env.VITE_PIKU_RELAY_URL": JSON.stringify(configuredRelayUrl),
       "import.meta.env.VITE_CLERK_PUBLISHABLE_KEY": JSON.stringify(configuredClerkPublishableKey),
       "import.meta.env.VITE_CLERK_JWT_TEMPLATE": JSON.stringify(configuredClerkJwtTemplate),
       "import.meta.env.VITE_CLERK_CLI_OAUTH_CLIENT_ID": JSON.stringify(
@@ -209,7 +208,7 @@ export default defineConfig(() => {
       // Electron's BrowserWindow needs the HMR socket pinned to an explicit
       // host to connect reliably; dev:desktop is the only mode that sets HOST.
       // Everywhere else, leaving this unset lets the client derive it from the
-      // page origin, which is what makes HMR work over Tailscale/LAN instead of
+      // page origin, which is what makes HMR work over the LAN instead of
       // failing an attempt against the wrong machine's localhost first.
       // (Vite 8 logs connection state via console.debug — enable "Verbose".)
       ...(explicitHost

@@ -4,7 +4,7 @@ import {
   type ModelSelection,
   type ServerProviderModel,
   type ServerProviderSlashCommand,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -17,9 +17,8 @@ import {
   getModelSelectionStringOptionValue,
   getProviderOptionCurrentValue,
   getProviderOptionDescriptors,
-} from "@t3tools/shared/model";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
-import { compareSemverVersions } from "@t3tools/shared/semver";
+} from "@piku/shared/model";
+import { compareSemverVersions } from "@piku/shared/semver";
 import {
   query as claudeQuery,
   type Options as ClaudeQueryOptions,
@@ -39,7 +38,6 @@ import {
   spawnAndCollect,
   type ServerProviderDraft,
 } from "../providerSnapshot.ts";
-import { resolveClaudeSdkExecutablePath } from "../Drivers/ClaudeExecutable.ts";
 import { makeClaudeEnvironment } from "../Drivers/ClaudeHome.ts";
 import { discoverClaudeSkills } from "../Drivers/ClaudeSkills.ts";
 
@@ -711,10 +709,6 @@ const probeClaudeCapabilities = (
   const abort = new AbortController();
   return Effect.gen(function* () {
     const claudeEnvironment = yield* makeClaudeEnvironment(claudeSettings, environment);
-    const executablePath = yield* resolveClaudeSdkExecutablePath(
-      claudeSettings.binaryPath,
-      claudeEnvironment,
-    );
     return yield* Effect.tryPromise(async () => {
       const q = claudeQuery({
         // Never yield — we only need initialization data, not a conversation.
@@ -724,7 +718,7 @@ const probeClaudeCapabilities = (
           await waitForAbortSignal(abort.signal);
         })(),
         options: buildClaudeCapabilitiesProbeQueryOptions({
-          executablePath,
+          executablePath: claudeSettings.binaryPath,
           abortController: abort,
           environment: claudeEnvironment,
           cwd,
@@ -768,14 +762,10 @@ const runClaudeCommand = Effect.fn("runClaudeCommand")(function* (
   environment?: NodeJS.ProcessEnv,
 ) {
   const claudeEnvironment = yield* makeClaudeEnvironment(claudeSettings, environment);
-  const spawnCommand = yield* resolveSpawnCommand(claudeSettings.binaryPath, args, {
+  const command = ChildProcess.make(claudeSettings.binaryPath, args, {
     env: claudeEnvironment,
   });
-  const command = ChildProcess.make(spawnCommand.command, spawnCommand.args, {
-    env: claudeEnvironment,
-    shell: spawnCommand.shell,
-  });
-  return yield* spawnAndCollect(claudeSettings.binaryPath, command);
+  return yield* spawnAndCollect(command);
 });
 
 export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(function* (
@@ -809,7 +799,7 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Claude is disabled in T3 Code settings.",
+        message: "Claude is disabled in Piku Code settings.",
       },
     });
   }
@@ -972,7 +962,7 @@ export const makePendingClaudeProvider = (
           version: null,
           status: "warning",
           auth: { status: "unknown" },
-          message: "Claude is disabled in T3 Code settings.",
+          message: "Claude is disabled in Piku Code settings.",
         },
       });
     }

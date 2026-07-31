@@ -3,12 +3,7 @@ import * as Schema from "effect/Schema";
 
 import { EnvironmentId, ProjectId, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
 
-export const ExecutionEnvironmentPlatformOs = Schema.Literals([
-  "darwin",
-  "linux",
-  "windows",
-  "unknown",
-]);
+export const ExecutionEnvironmentPlatformOs = Schema.Literals(["darwin", "linux", "unknown"]);
 export type ExecutionEnvironmentPlatformOs = typeof ExecutionEnvironmentPlatformOs.Type;
 
 export const ExecutionEnvironmentPlatformArch = Schema.Literals(["arm64", "x64", "other"]);
@@ -28,7 +23,7 @@ export type ServerSelfUpdateMethod = typeof ServerSelfUpdateMethod.Type;
 
 /** What update path a client should offer for a server: one of the RPC
     self-update methods above, or "desktop-managed" when the backend's
-    version belongs to the T3 Code desktop app supervising it — updating the
+    version belongs to the Piku Code desktop app supervising it — updating the
     app on that machine is the only way to update the server. */
 export const ServerSelfUpdateCapability = Schema.Literals([
   "boot-service",
@@ -51,8 +46,8 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
       older servers, so clients hide the action instead of sending it. */
   threadTitleRegeneration: Schema.optionalKey(Schema.Boolean),
   /** The update path clients should offer for this server. Absent on
-      servers that must be relaunched manually (dev checkouts, Windows
-      foreground runs, pre-update servers). */
+      servers that must be relaunched manually (dev checkouts, foreground
+      runs, pre-update servers). */
   serverSelfUpdate: Schema.optionalKey(ServerSelfUpdateCapability),
   /** Server can stream self-update progress before acknowledging the
       restart. Clients fall back to server.updateServer when absent. */

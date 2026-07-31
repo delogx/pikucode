@@ -6,7 +6,7 @@ import {
   type ServerSelfUpdateProgressEvent,
   type ServerSelfUpdateResult,
   WS_METHODS,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import * as Cause from "effect/Cause";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -82,7 +82,7 @@ export class ServerUpdateResumeTimeoutError extends Schema.TaggedErrorClass<Serv
   },
 ) {
   override get message(): string {
-    return `The server did not resume on t3@${this.targetVersion}.`;
+    return `The server did not resume on piku@${this.targetVersion}.`;
   }
 }
 
@@ -93,7 +93,7 @@ export class ServerUpdateProgressIncompleteError extends Schema.TaggedErrorClass
   },
 ) {
   override get message(): string {
-    return `The t3@${this.targetVersion} update ended before the server accepted the restart.`;
+    return `The piku@${this.targetVersion} update ended before the server accepted the restart.`;
   }
 }
 

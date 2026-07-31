@@ -1,8 +1,5 @@
-import {
-  BearerConnectionTarget,
-  PrimaryConnectionTarget,
-} from "@t3tools/client-runtime/connection";
-import { EnvironmentId, PRIMARY_LOCAL_ENVIRONMENT_ID } from "@t3tools/contracts";
+import { BearerConnectionTarget, PrimaryConnectionTarget } from "@piku/client-runtime/connection";
+import { EnvironmentId, PRIMARY_LOCAL_ENVIRONMENT_ID } from "@piku/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -15,13 +12,13 @@ import {
 describe("desktop local connection identity", () => {
   it("preserves the desktop backend instance id", () => {
     const target = new BearerConnectionTarget({
-      connectionId: desktopLocalConnectionId("wsl:Ubuntu"),
-      environmentId: EnvironmentId.make("environment-wsl"),
-      label: "WSL (Ubuntu)",
+      connectionId: desktopLocalConnectionId("secondary-1"),
+      environmentId: EnvironmentId.make("environment-secondary"),
+      label: "Secondary",
     });
 
     expect(isDesktopLocalConnectionTarget(target)).toBe(true);
-    expect(desktopLocalBackendId(target)).toBe("wsl:Ubuntu");
+    expect(desktopLocalBackendId(target)).toBe("secondary-1");
   });
 
   it("does not classify the primary environment as desktop-local", () => {
@@ -55,8 +52,8 @@ describe("desktop local topology reads", () => {
 
   it("filters the primary bootstrap from successful topology reads", () => {
     const secondary = {
-      id: "wsl:Ubuntu",
-      label: "WSL: Ubuntu",
+      id: "secondary-1",
+      label: "Secondary",
       httpBaseUrl: "http://127.0.0.1:4000",
       wsBaseUrl: "ws://127.0.0.1:4000",
     };
@@ -66,7 +63,7 @@ describe("desktop local topology reads", () => {
         {
           ...secondary,
           id: PRIMARY_LOCAL_ENVIRONMENT_ID,
-          label: "Windows",
+          label: "Local environment",
         },
         secondary,
       ],
@@ -77,8 +74,8 @@ describe("desktop local topology reads", () => {
 
   it("retains the last successful snapshot only until another read succeeds", () => {
     const secondary = {
-      id: "wsl:Ubuntu",
-      label: "WSL: Ubuntu",
+      id: "secondary-1",
+      label: "Secondary",
       httpBaseUrl: "http://127.0.0.1:4000",
       wsBaseUrl: "ws://127.0.0.1:4000",
     };

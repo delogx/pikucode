@@ -3,7 +3,7 @@ import {
   ProviderDriverKind,
   ProviderInstanceId,
   type ServerProvider,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import * as Duration from "effect/Duration";
 import { describe, expect, it } from "vite-plus/test";
 import { resolveServerBackgroundActivitySettings } from "./backgroundActivitySettings.ts";
@@ -134,12 +134,12 @@ describe("serverSettings helpers", () => {
     expect(
       applyServerSettingsPatch(current, {
         textGenerationModelSelection: {
-          instanceId: ProviderInstanceId.make("opencode"),
+          instanceId: ProviderInstanceId.make("codex"),
           model: "openai/gpt-5",
         },
       }).textGenerationModelSelection,
     ).toEqual({
-      instanceId: "opencode",
+      instanceId: "codex",
       model: "openai/gpt-5",
     });
   });
@@ -148,7 +148,7 @@ describe("serverSettings helpers", () => {
     expect(
       applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
         textGenerationModelSelection: {
-          instanceId: ProviderInstanceId.make("opencode"),
+          instanceId: ProviderInstanceId.make("codex"),
           model: "openai/gpt-5",
           options: [
             { id: "variant", value: "prod" },
@@ -157,7 +157,7 @@ describe("serverSettings helpers", () => {
         },
       }).textGenerationModelSelection,
     ).toEqual({
-      instanceId: "opencode",
+      instanceId: "codex",
       model: "openai/gpt-5",
       options: [
         { id: "variant", value: "prod" },
@@ -179,12 +179,12 @@ describe("serverSettings helpers", () => {
     expect(
       applyServerSettingsPatch(current, {
         sourceControlWriterModelSelection: {
-          instanceId: ProviderInstanceId.make("opencode"),
+          instanceId: ProviderInstanceId.make("codex"),
           model: "openai/gpt-5",
         },
       }).sourceControlWriterModelSelection,
     ).toEqual({
-      instanceId: "opencode",
+      instanceId: "codex",
       model: "openai/gpt-5",
     });
   });

@@ -21,7 +21,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "../ui/sidebar";
-import { T3ConnectSidebarAvatar, T3ConnectSidebarSignIn } from "../clerk/T3ConnectSidebarSignIn";
+import {
+  PikuConnectSidebarAvatar,
+  PikuConnectSidebarSignIn,
+} from "../clerk/PikuConnectSidebarSignIn";
 
 export type SettingsSectionPath =
   | "/settings/general"
@@ -96,7 +99,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-2">
-        <T3ConnectSidebarSignIn />
+        <PikuConnectSidebarSignIn />
         <div className="flex items-center gap-1">
           <SidebarMenu className="min-w-0 flex-1">
             <SidebarMenuItem>
@@ -106,7 +109,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
-          <T3ConnectSidebarAvatar />
+          <PikuConnectSidebarAvatar />
         </div>
       </SidebarFooter>
     </>

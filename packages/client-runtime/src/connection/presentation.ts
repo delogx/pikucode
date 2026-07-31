@@ -1,4 +1,4 @@
-import type { ServerConfig } from "@t3tools/contracts";
+import type { ServerConfig } from "@piku/contracts";
 import * as Option from "effect/Option";
 
 import type { ConnectionCatalogEntry } from "./catalog.ts";
@@ -98,10 +98,6 @@ export function connectionCatalogDisplayUrl(entry: ConnectionCatalogEntry): stri
     case "BearerConnectionTarget":
       return Option.isSome(entry.profile) && entry.profile.value._tag === "BearerConnectionProfile"
         ? entry.profile.value.httpBaseUrl
-        : null;
-    case "SshConnectionTarget":
-      return Option.isSome(entry.profile) && entry.profile.value._tag === "SshConnectionProfile"
-        ? `${entry.profile.value.target.username}@${entry.profile.value.target.hostname}`
         : null;
   }
 }

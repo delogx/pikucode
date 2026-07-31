@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { ResolvedKeybindingsConfig } from "@t3tools/contracts";
+import type { ResolvedKeybindingsConfig } from "@piku/contracts";
 
 import {
   buildKeybindingRows,
@@ -59,7 +59,7 @@ describe("KeybindingsSettings.logic", () => {
     expect(
       keybindingFromKeyboardEvent(
         { key: "K", metaKey: false, ctrlKey: true, altKey: false, shiftKey: true },
-        "Win32",
+        "Linux",
       ),
     ).toBe("mod+shift+k");
   });

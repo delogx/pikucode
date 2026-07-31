@@ -1,24 +1,20 @@
-import { AuthStandardClientScopes, EnvironmentId } from "@t3tools/contracts";
+import { AuthStandardClientScopes, EnvironmentId } from "@piku/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { remoteHttpClientLayer } from "../rpc/http.ts";
-import { ClientPresentation, SshEnvironmentGateway } from "../platform/capabilities.ts";
+import { ClientPresentation } from "../platform/capabilities.ts";
 import { BearerConnectionCredential, BearerConnectionProfile } from "./catalog.ts";
 import { BearerConnectionTarget } from "./model.ts";
-import {
-  prepareBearerConnectionUpdate,
-  preparePairingRegistration,
-  prepareSshRegistration,
-} from "./onboarding.ts";
+import { prepareBearerConnectionUpdate, preparePairingRegistration } from "./onboarding.ts";
 
 const CLIENT_PRESENTATION_LAYER = Layer.succeed(
   ClientPresentation,
   ClientPresentation.of({
     metadata: {
-      label: "T3 Code Test",
+      label: "Piku Code Test",
       deviceType: "desktop",
       os: "Test OS",
     },
@@ -34,7 +30,7 @@ function pairingHttpLayer(
     const url = String(input);
     calls.push({ url, init });
 
-    if (url.endsWith("/.well-known/t3/environment")) {
+    if (url.endsWith("/.well-known/piku/environment")) {
       if (options?.failDescriptor === true) {
         return Promise.resolve(
           Response.json({ message: "descriptor unavailable" }, { status: 503 }),
@@ -102,7 +98,7 @@ describe("connection onboarding", () => {
         },
       });
       expect(calls.map((call) => call.url)).toEqual([
-        "https://remote.example.test/.well-known/t3/environment",
+        "https://remote.example.test/.well-known/piku/environment",
         "https://remote.example.test/oauth/token",
       ]);
 
@@ -114,7 +110,7 @@ describe("connection onboarding", () => {
       const tokenParams = new URLSearchParams(tokenBody);
       expect(tokenParams.get("subject_token")).toBe("pairing-token");
       expect(tokenParams.get("scope")).toBe(AuthStandardClientScopes.join(" "));
-      expect(tokenParams.get("client_label")).toBe("T3 Code Test");
+      expect(tokenParams.get("client_label")).toBe("Piku Code Test");
     }),
   );
 
@@ -136,7 +132,7 @@ describe("connection onboarding", () => {
       );
 
       expect(calls.map((call) => call.url)).toEqual([
-        "https://remote.example.test/.well-known/t3/environment",
+        "https://remote.example.test/.well-known/piku/environment",
       ]);
     }),
   );
@@ -202,55 +198,6 @@ describe("connection onboarding", () => {
           wsBaseUrl: "ws://100.65.180.100:3773/",
         },
         credential: { token: "bearer-token" },
-      });
-    }),
-  );
-
-  it.effect("prepares an SSH registration from the provisioned platform environment", () =>
-    Effect.gen(function* () {
-      const target = {
-        alias: "devbox",
-        hostname: "devbox.example.test",
-        username: "developer",
-        port: 22,
-      };
-      const registration = yield* prepareSshRegistration({
-        target,
-      }).pipe(
-        Effect.provideService(
-          SshEnvironmentGateway,
-          SshEnvironmentGateway.of({
-            provision: () =>
-              Effect.succeed({
-                environmentId: EnvironmentId.make("environment-ssh"),
-                label: "Remote development box",
-                bootstrap: {
-                  target,
-                  httpBaseUrl: "http://127.0.0.1:3201",
-                  wsBaseUrl: "ws://127.0.0.1:3201",
-                  pairingToken: "pairing-token",
-                },
-                bearerToken: "bearer-token",
-              }),
-            prepare: () => Effect.die("unused"),
-            disconnect: () => Effect.die("unused"),
-          }),
-        ),
-      );
-
-      expect(registration).toMatchObject({
-        _tag: "SshConnectionRegistration",
-        target: {
-          environmentId: "environment-ssh",
-          label: "Remote development box",
-          connectionId: "ssh:environment-ssh",
-        },
-        profile: {
-          environmentId: "environment-ssh",
-          label: "Remote development box",
-          connectionId: "ssh:environment-ssh",
-          target,
-        },
       });
     }),
   );

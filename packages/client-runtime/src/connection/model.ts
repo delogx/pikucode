@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@t3tools/contracts";
+import { EnvironmentId } from "@piku/contracts";
 import * as Schema from "effect/Schema";
 
 const ConnectionTargetBase = {
@@ -30,26 +30,16 @@ export class RelayConnectionTarget extends Schema.TaggedClass<RelayConnectionTar
   },
 ) {}
 
-export class SshConnectionTarget extends Schema.TaggedClass<SshConnectionTarget>()(
-  "SshConnectionTarget",
-  {
-    ...ConnectionTargetBase,
-    connectionId: Schema.String,
-  },
-) {}
-
 export const ConnectionTarget = Schema.Union([
   PrimaryConnectionTarget,
   BearerConnectionTarget,
   RelayConnectionTarget,
-  SshConnectionTarget,
 ]);
 export type ConnectionTarget = typeof ConnectionTarget.Type;
 
 export const PersistedConnectionTarget = Schema.Union([
   BearerConnectionTarget,
   RelayConnectionTarget,
-  SshConnectionTarget,
 ]);
 export type PersistedConnectionTarget = typeof PersistedConnectionTarget.Type;
 

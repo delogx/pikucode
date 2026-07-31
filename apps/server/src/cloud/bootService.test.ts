@@ -12,7 +12,7 @@ import {
   HostProcessArguments,
   HostProcessExecutablePath,
   HostProcessPlatform,
-} from "@t3tools/shared/hostProcess";
+} from "@piku/shared/hostProcess";
 
 import { reconcileService } from "../cli/service.ts";
 import * as ProcessRunner from "../processRunner.ts";
@@ -71,7 +71,7 @@ const provideHostRefs = (home: string, platform: NodeJS.Platform = "linux") =>
 const makeTestContext = Effect.fn("test.makeTestContext")(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-boot-service-test-" });
+  const root = yield* fs.makeTempDirectoryScoped({ prefix: "piku-boot-service-test-" });
   // A real file for the stable-entry cases so status can confirm the entry
   // point exists.
   const stableEntry = path.join(root, "bin.mjs");
@@ -81,8 +81,8 @@ const makeTestContext = Effect.fn("test.makeTestContext")(function* () {
     path,
     dirs: {
       home: root,
-      baseDir: path.join(root, ".t3"),
-      logsDir: path.join(root, ".t3", "userdata", "logs"),
+      baseDir: path.join(root, ".pikucode"),
+      logsDir: path.join(root, ".pikucode", "userdata", "logs"),
       stableEntry,
     },
   };
@@ -91,30 +91,30 @@ const makeTestContext = Effect.fn("test.makeTestContext")(function* () {
 it("renders a systemd unit with absolute paths and append-mode logging", () => {
   const unit = BootService.renderBootServiceUnit({
     nodePath: "/usr/local/bin/node",
-    t3EntryPath: "/home/theo/.t3/runtime/versions/0.0.27/node_modules/t3/dist/bin.mjs",
-    baseDir: "/home/theo/.t3",
-    logPath: "/home/theo/.t3/userdata/logs/boot-service.log",
-    unitPath: "/home/theo/.config/systemd/user/t3code.service",
+    pikuEntryPath: "/home/theo/.pikucode/runtime/versions/0.0.27/node_modules/piku/dist/bin.mjs",
+    baseDir: "/home/theo/.pikucode",
+    logPath: "/home/theo/.pikucode/userdata/logs/boot-service.log",
+    unitPath: "/home/theo/.config/systemd/user/pikucode.service",
   });
 
   assert.equal(
     unit,
     [
       "[Unit]",
-      "Description=T3 Code server",
+      "Description=Piku Code server",
       "StartLimitIntervalSec=300",
       "StartLimitBurst=5",
       "",
       "[Service]",
       "Type=simple",
       "WorkingDirectory=%h",
-      "Environment=T3CODE_HOME=/home/theo/.t3",
-      "Environment=T3_BOOT_SERVICE_UNIT=t3code.service",
-      "ExecStart=/usr/local/bin/node /home/theo/.t3/runtime/versions/0.0.27/node_modules/t3/dist/bin.mjs serve",
+      "Environment=PIKU_HOME=/home/theo/.pikucode",
+      "Environment=PIKU_BOOT_SERVICE_UNIT=pikucode.service",
+      "ExecStart=/usr/local/bin/node /home/theo/.pikucode/runtime/versions/0.0.27/node_modules/piku/dist/bin.mjs serve",
       "Restart=always",
       "RestartSec=5",
-      "StandardOutput=append:/home/theo/.t3/userdata/logs/boot-service.log",
-      "StandardError=append:/home/theo/.t3/userdata/logs/boot-service.log",
+      "StandardOutput=append:/home/theo/.pikucode/userdata/logs/boot-service.log",
+      "StandardError=append:/home/theo/.pikucode/userdata/logs/boot-service.log",
       "",
       "[Install]",
       "WantedBy=default.target",
@@ -125,18 +125,18 @@ it("renders a systemd unit with absolute paths and append-mode logging", () => {
 
 it("quotes systemd values containing spaces and escapes percent specifiers", () => {
   assert.equal(BootService.quoteSystemdValue("/plain/path"), "/plain/path");
-  assert.equal(BootService.quoteSystemdValue("/home/me/T3 Data"), '"/home/me/T3 Data"');
+  assert.equal(BootService.quoteSystemdValue("/home/me/Piku Data"), '"/home/me/Piku Data"');
   assert.equal(BootService.quoteSystemdValue("/opt/100%cpu"), "/opt/100%%cpu");
 
   const unit = BootService.renderBootServiceUnit({
     nodePath: "/home/me/my tools/node",
-    t3EntryPath: "/home/me/T3 Data/bin.mjs",
-    baseDir: "/home/me/T3 Data",
+    pikuEntryPath: "/home/me/Piku Data/bin.mjs",
+    baseDir: "/home/me/Piku Data",
     logPath: "/home/me/100%logs/boot.log",
-    unitPath: "/home/me/.config/systemd/user/t3code.service",
+    unitPath: "/home/me/.config/systemd/user/pikucode.service",
   });
-  assert.include(unit, 'ExecStart="/home/me/my tools/node" "/home/me/T3 Data/bin.mjs" serve');
-  assert.include(unit, 'Environment=T3CODE_HOME="/home/me/T3 Data"');
+  assert.include(unit, 'ExecStart="/home/me/my tools/node" "/home/me/Piku Data/bin.mjs" serve');
+  assert.include(unit, 'Environment=PIKU_HOME="/home/me/Piku Data"');
   // append: paths take the rest of the line literally (spaces are fine,
   // quoting is not), but % still goes through specifier expansion.
   assert.include(unit, "StandardOutput=append:/home/me/100%%logs/boot.log");
@@ -145,28 +145,27 @@ it("quotes systemd values containing spaces and escapes percent specifiers", () 
 
 it("flags package-manager cache entry points as ephemeral", () => {
   assert.isTrue(
-    BootService.isEphemeralCacheEntry("/home/theo/.npm/_npx/abc123/node_modules/t3/dist/bin.mjs"),
-  );
-  assert.isTrue(
-    BootService.isEphemeralCacheEntry("C:\\Users\\theo\\AppData\\npm-cache\\_npx\\abc\\bin.mjs"),
+    BootService.isEphemeralCacheEntry("/home/theo/.npm/_npx/abc123/node_modules/piku/dist/bin.mjs"),
   );
   assert.isTrue(
     BootService.isEphemeralCacheEntry(
-      "/home/theo/.cache/pnpm/dlx/abc/node_modules/t3/dist/bin.mjs",
+      "/home/theo/.cache/pnpm/dlx/abc/node_modules/piku/dist/bin.mjs",
     ),
   );
   assert.isTrue(
-    BootService.isEphemeralCacheEntry("/home/theo/.bun/install/cache/t3@0.0.27/dist/bin.mjs"),
+    BootService.isEphemeralCacheEntry("/home/theo/.bun/install/cache/piku@0.0.27/dist/bin.mjs"),
   );
-  assert.isFalse(BootService.isEphemeralCacheEntry("/usr/local/lib/node_modules/t3/dist/bin.mjs"));
+  assert.isFalse(
+    BootService.isEphemeralCacheEntry("/usr/local/lib/node_modules/piku/dist/bin.mjs"),
+  );
   assert.isFalse(
     BootService.isEphemeralCacheEntry(
-      "/home/theo/dev/pnpm/dlx-tools/t3/node_modules/t3/dist/bin.mjs",
+      "/home/theo/dev/pnpm/dlx-tools/piku/node_modules/piku/dist/bin.mjs",
     ),
   );
   assert.isFalse(
     BootService.isEphemeralCacheEntry(
-      "/home/theo/.t3/runtime/versions/0.0.27/node_modules/t3/dist/bin.mjs",
+      "/home/theo/.pikucode/runtime/versions/0.0.27/node_modules/piku/dist/bin.mjs",
     ),
   );
 });
@@ -213,23 +212,23 @@ it.layer(NodeServices.layer)("BootService", (it) => {
       const plan = yield* service.install;
 
       // A stable entry point is reused directly — no npm install.
-      assert.equal(plan.t3EntryPath, dirs.stableEntry);
+      assert.equal(plan.pikuEntryPath, dirs.stableEntry);
       assert.deepEqual(
         commands.map((entry) => [entry.command, ...entry.args].join(" ")),
         [
           "systemctl --user daemon-reload",
-          "systemctl --user enable t3code.service",
+          "systemctl --user enable pikucode.service",
           // restart (not enable --now) so repairing a stale unit replaces a
           // running process instead of leaving the old one until reboot.
-          "systemctl --user restart t3code.service",
+          "systemctl --user restart pikucode.service",
           "loginctl enable-linger",
         ],
       );
 
-      const unitPath = path.join(dirs.home, ".config", "systemd", "user", "t3code.service");
+      const unitPath = path.join(dirs.home, ".config", "systemd", "user", "pikucode.service");
       const unit = yield* fs.readFileString(unitPath);
       assert.include(unit, `ExecStart=/usr/local/bin/node ${dirs.stableEntry} serve`);
-      assert.include(unit, `Environment=T3CODE_HOME=${dirs.baseDir}`);
+      assert.include(unit, `Environment=PIKU_HOME=${dirs.baseDir}`);
 
       const status = yield* service.status;
       assert.isTrue(status.supported);
@@ -254,19 +253,19 @@ it.layer(NodeServices.layer)("BootService", (it) => {
         baseDir: dirs.baseDir,
         logsDir: dirs.logsDir,
         cliVersion: "0.0.27",
-        host: makeHost("/home/theo/.npm/_npx/abc/node_modules/t3/dist/bin.mjs"),
+        host: makeHost("/home/theo/.npm/_npx/abc/node_modules/piku/dist/bin.mjs"),
       }).pipe(Effect.provide(makeRecordingRunnerLayer(commands)), provideHostRefs(dirs.home));
 
       const plan = yield* service.install;
 
       const runtimeDir = path.join(dirs.baseDir, "runtime", "versions", "0.0.27");
       assert.equal(
-        plan.t3EntryPath,
-        path.join(runtimeDir, "node_modules", "t3", "dist", "bin.mjs"),
+        plan.pikuEntryPath,
+        path.join(runtimeDir, "node_modules", "piku", "dist", "bin.mjs"),
       );
       assert.deepEqual(commands[0], {
         command: "npm",
-        args: ["install", "--prefix", runtimeDir, "--no-fund", "--no-audit", "t3@0.0.27"],
+        args: ["install", "--prefix", runtimeDir, "--no-fund", "--no-audit", "piku@0.0.27"],
       });
       // Success is recorded via a sentinel so interrupted installs re-run.
       assert.isTrue(yield* fs.exists(path.join(runtimeDir, ".install-complete")));
@@ -281,13 +280,13 @@ it.layer(NodeServices.layer)("BootService", (it) => {
         baseDir: dirs.baseDir,
         logsDir: dirs.logsDir,
         cliVersion: "0.0.27",
-        host: makeHost("/home/theo/.npm/_npx/abc/node_modules/t3/dist/bin.mjs"),
+        host: makeHost("/home/theo/.npm/_npx/abc/node_modules/piku/dist/bin.mjs"),
       }).pipe(Effect.provide(makeRecordingRunnerLayer(commands)), provideHostRefs(dirs.home));
 
       const plan = yield* service.install;
-      yield* fs.makeDirectory(path.dirname(plan.t3EntryPath), { recursive: true });
-      yield* fs.writeFileString(plan.t3EntryPath, "#!/usr/bin/env node\n");
-      yield* fs.remove(plan.t3EntryPath);
+      yield* fs.makeDirectory(path.dirname(plan.pikuEntryPath), { recursive: true });
+      yield* fs.writeFileString(plan.pikuEntryPath, "#!/usr/bin/env node\n");
+      yield* fs.remove(plan.pikuEntryPath);
       commands.length = 0;
 
       yield* service.install;
@@ -313,7 +312,7 @@ it.layer(NodeServices.layer)("BootService", (it) => {
 
       const plan = yield* service.install;
       assert.equal(plan.nodePath, "/opt/node/bin/node");
-      assert.equal(plan.t3EntryPath, dirs.stableEntry);
+      assert.equal(plan.pikuEntryPath, dirs.stableEntry);
     }),
   );
 
@@ -325,7 +324,7 @@ it.layer(NodeServices.layer)("BootService", (it) => {
         baseDir: dirs.baseDir,
         logsDir: dirs.logsDir,
         cliVersion: "0.0.27",
-        host: makeHost("/home/theo/.npm/_npx/abc/node_modules/t3/dist/bin.mjs"),
+        host: makeHost("/home/theo/.npm/_npx/abc/node_modules/piku/dist/bin.mjs"),
       }).pipe(
         Effect.provide(makeRecordingRunnerLayer(commands, { failCommand: "npm" })),
         provideHostRefs(dirs.home),
@@ -354,8 +353,8 @@ it.layer(NodeServices.layer)("BootService", (it) => {
       const unitDir = path.join(dirs.home, ".config", "systemd", "user");
       yield* fs.makeDirectory(unitDir, { recursive: true });
       yield* fs.writeFileString(
-        path.join(unitDir, "t3code.service"),
-        "[Service]\nExecStart=/old/node /old/t3 serve\n",
+        path.join(unitDir, "pikucode.service"),
+        "[Service]\nExecStart=/old/node /old/piku serve\n",
       );
 
       const status = yield* service.status;
@@ -396,7 +395,7 @@ it.layer(NodeServices.layer)("BootService", (it) => {
         baseDir: dirs.baseDir,
         logsDir: dirs.logsDir,
         cliVersion: "0.0.27",
-        host: makeHost("/usr/local/lib/node_modules/t3/dist/bin.mjs"),
+        host: makeHost("/usr/local/lib/node_modules/piku/dist/bin.mjs"),
       }).pipe(
         Effect.provide(makeRecordingRunnerLayer(commands)),
         provideHostRefs(dirs.home, "darwin"),
@@ -406,7 +405,7 @@ it.layer(NodeServices.layer)("BootService", (it) => {
       assert.isTrue(isUnsupportedError(error));
       assert.lengthOf(commands, 0);
       assert.isFalse(
-        yield* fs.exists(path.join(dirs.home, ".config", "systemd", "user", "t3code.service")),
+        yield* fs.exists(path.join(dirs.home, ".config", "systemd", "user", "pikucode.service")),
       );
 
       const status = yield* service.status;
@@ -423,7 +422,7 @@ it.layer(NodeServices.layer)("BootService", (it) => {
         baseDir: dirs.baseDir,
         logsDir: dirs.logsDir,
         cliVersion: "0.0.27",
-        host: makeHost("/usr/local/lib/node_modules/t3/dist/bin.mjs"),
+        host: makeHost("/usr/local/lib/node_modules/piku/dist/bin.mjs"),
       }).pipe(
         Effect.provide(makeRecordingRunnerLayer(commands, { failCommand: "loginctl" })),
         provideHostRefs(dirs.home),
@@ -434,14 +433,14 @@ it.layer(NodeServices.layer)("BootService", (it) => {
       // A leftover unit would make status report "installed" even though
       // linger never happened.
       assert.isFalse(
-        yield* fs.exists(path.join(dirs.home, ".config", "systemd", "user", "t3code.service")),
+        yield* fs.exists(path.join(dirs.home, ".config", "systemd", "user", "pikucode.service")),
       );
       const status = yield* service.status;
       assert.isFalse(status.installed);
       assert.isTrue(
         commands.some(
           ({ command, args }) =>
-            command === "systemctl" && args.join(" ") === "--user disable --now t3code.service",
+            command === "systemctl" && args.join(" ") === "--user disable --now pikucode.service",
         ),
       );
     }),
@@ -462,7 +461,7 @@ it.layer(NodeServices.layer)("BootService", (it) => {
       );
       yield* initialService.install;
 
-      const unitPath = path.join(dirs.home, ".config", "systemd", "user", "t3code.service");
+      const unitPath = path.join(dirs.home, ".config", "systemd", "user", "pikucode.service");
       const previousUnit = yield* fs.readFileString(unitPath);
       const replacementEntry = path.join(dirs.home, "replacement-bin.mjs");
       yield* fs.writeFileString(replacementEntry, "#!/usr/bin/env node\n");
@@ -484,7 +483,7 @@ it.layer(NodeServices.layer)("BootService", (it) => {
       assert.isTrue(
         repairCommands.some(
           ({ command, args }) =>
-            command === "systemctl" && args.join(" ") === "--user restart t3code.service",
+            command === "systemctl" && args.join(" ") === "--user restart pikucode.service",
         ),
       );
     }),
@@ -525,7 +524,7 @@ it.layer(NodeServices.layer)("BootService", (it) => {
 
       assert.isTrue(isCommandError(error));
       assert.isTrue(
-        yield* fs.exists(path.join(dirs.home, ".config", "systemd", "user", "t3code.service")),
+        yield* fs.exists(path.join(dirs.home, ".config", "systemd", "user", "pikucode.service")),
       );
     }),
   );
@@ -538,7 +537,7 @@ it.layer(NodeServices.layer)("BootService", (it) => {
         baseDir: dirs.baseDir,
         logsDir: dirs.logsDir,
         cliVersion: "0.0.27",
-        host: makeHost("/usr/local/lib/node_modules/t3/dist/bin.mjs"),
+        host: makeHost("/usr/local/lib/node_modules/piku/dist/bin.mjs"),
       }).pipe(
         Effect.provide(makeRecordingRunnerLayer(commands, { failCommand: "systemctl" })),
         provideHostRefs(dirs.home),

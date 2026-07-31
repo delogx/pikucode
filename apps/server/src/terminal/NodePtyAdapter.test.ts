@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import { HostProcessArchitecture, HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import { HostProcessArchitecture, HostProcessPlatform } from "@piku/shared/hostProcess";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -25,7 +25,7 @@ const testLayer = NodePtyAdapter.layer.pipe(
   Layer.provide(
     Layer.mergeAll(
       NodeServices.layer,
-      Layer.succeed(HostProcessPlatform, "win32"),
+      Layer.succeed(HostProcessPlatform, "linux"),
       Layer.succeed(HostProcessArchitecture, "x64"),
     ),
   ),
@@ -35,9 +35,9 @@ it.effect("spawns through the public adapter with the provided host references",
   Effect.gen(function* () {
     const adapter = yield* PtyAdapter.PtyAdapter;
     const process = yield* adapter.spawn({
-      shell: "powershell.exe",
-      args: ["-NoLogo"],
-      cwd: "C:\\workspace",
+      shell: "/bin/zsh",
+      args: ["-o", "nopromptsp"],
+      cwd: "/workspace",
       cols: 120,
       rows: 40,
       env: {},
@@ -46,14 +46,14 @@ it.effect("spawns through the public adapter with the provided host references",
     assert.equal(process.pid, 42);
     assert.equal(spawn.mock.calls.length, 1);
     assert.deepEqual(spawn.mock.calls[0], [
-      "powershell.exe",
-      ["-NoLogo"],
+      "/bin/zsh",
+      ["-o", "nopromptsp"],
       {
-        cwd: "C:\\workspace",
+        cwd: "/workspace",
         cols: 120,
         rows: 40,
         env: {},
-        name: "xterm-color",
+        name: "xterm-256color",
       },
     ]);
   }).pipe(Effect.provide(testLayer)),
@@ -71,16 +71,16 @@ it.effect("reports native module load failures as structured startup defects", (
       assert.instanceOf(error, NodePtyAdapter.NodePtyModuleLoadError);
       assert.deepInclude(error, {
         _tag: "NodePtyModuleLoadError",
-        platform: "win32",
+        platform: "linux",
         architecture: "x64",
       });
-      assert.equal(error.message, "Failed to load node-pty for win32-x64.");
+      assert.equal(error.message, "Failed to load node-pty for linux-x64.");
     }
   }).pipe(
     Effect.provide(
       Layer.mergeAll(
         NodeServices.layer,
-        Layer.succeed(HostProcessPlatform, "win32"),
+        Layer.succeed(HostProcessPlatform, "linux"),
         Layer.succeed(HostProcessArchitecture, "x64"),
       ),
     ),

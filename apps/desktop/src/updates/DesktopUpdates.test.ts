@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import type { DesktopUpdateState } from "@t3tools/contracts";
+import type { DesktopUpdateState } from "@piku/contracts";
 import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
@@ -114,7 +114,7 @@ function makeHarness(options: UpdatesHarnessOptions = {}) {
 
   const stubBackendInstance: DesktopBackendPool.DesktopBackendInstance = {
     id: DesktopBackendPool.PRIMARY_INSTANCE_ID,
-    label: Effect.succeed("Windows"),
+    label: Effect.succeed("Local environment"),
     start: Effect.void,
     stop: () => options.stopBackend ?? Effect.void,
     currentConfig: Effect.succeed(Option.none()),
@@ -131,7 +131,7 @@ function makeHarness(options: UpdatesHarnessOptions = {}) {
 
   const environmentLayer = DesktopEnvironment.layer({
     dirname: "/repo/apps/desktop/src",
-    homeDirectory: `/tmp/t3-desktop-updates-home-${process.pid}`,
+    homeDirectory: `/tmp/piku-desktop-updates-home-${process.pid}`,
     platform: "darwin",
     processArch: "x64",
     appVersion: "1.2.3",
@@ -144,9 +144,9 @@ function makeHarness(options: UpdatesHarnessOptions = {}) {
       Layer.mergeAll(
         NodeServices.layer,
         DesktopConfig.layerTest({
-          T3CODE_HOME: `/tmp/t3-desktop-updates-test-${process.pid}`,
-          T3CODE_DESKTOP_MOCK_UPDATES: "true",
-          T3CODE_DESKTOP_MOCK_UPDATE_SERVER_PORT: "4141",
+          PIKU_HOME: `/tmp/piku-desktop-updates-test-${process.pid}`,
+          PIKU_DESKTOP_MOCK_UPDATES: "true",
+          PIKU_DESKTOP_MOCK_UPDATE_SERVER_PORT: "4141",
           ...options.env,
         }),
       ),
@@ -160,13 +160,7 @@ function makeHarness(options: UpdatesHarnessOptions = {}) {
         load: Effect.succeed(DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS),
         setMainWindowBounds: () => Effect.die("unexpected main window bounds update"),
         setServerExposureMode: () => Effect.die("unexpected server exposure update"),
-        setTailscaleServe: () => Effect.die("unexpected Tailscale Serve update"),
         setUpdateChannel: () => Effect.fail(setUpdateChannelError),
-        setWslBackendEnabled: () => Effect.die("unexpected WSL backend toggle"),
-        setWslDistro: () => Effect.die("unexpected WSL distro change"),
-        setWslOnly: () => Effect.die("unexpected WSL-only toggle"),
-        applyWslWindowsFallback: Effect.die("unexpected WSL Windows fallback"),
-        applyWslWindowsFallbackInMemory: Effect.die("unexpected WSL Windows fallback"),
       } satisfies DesktopAppSettings.DesktopAppSettings["Service"])
     : DesktopAppSettings.layer;
 
@@ -178,9 +172,9 @@ function makeHarness(options: UpdatesHarnessOptions = {}) {
     Layer.provideMerge(settingsLayer),
     Layer.provideMerge(
       DesktopConfig.layerTest({
-        T3CODE_HOME: `/tmp/t3-desktop-updates-test-${process.pid}`,
-        T3CODE_DESKTOP_MOCK_UPDATES: "true",
-        T3CODE_DESKTOP_MOCK_UPDATE_SERVER_PORT: "4141",
+        PIKU_HOME: `/tmp/piku-desktop-updates-test-${process.pid}`,
+        PIKU_DESKTOP_MOCK_UPDATES: "true",
+        PIKU_DESKTOP_MOCK_UPDATE_SERVER_PORT: "4141",
         ...options.env,
       }),
     ),

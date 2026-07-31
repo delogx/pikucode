@@ -1,4 +1,4 @@
-import type { AdvertisedEndpoint, DesktopServerExposureState } from "@t3tools/contracts";
+import type { AdvertisedEndpoint, DesktopServerExposureState } from "@piku/contracts";
 import * as Cause from "effect/Cause";
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult";
 import { AtomRegistry } from "effect/unstable/reactivity";
@@ -10,8 +10,6 @@ const serverExposureState: DesktopServerExposureState = {
   advertisedHost: "192.168.1.10",
   endpointUrl: "http://192.168.1.10:37737",
   mode: "network-accessible",
-  tailscaleServeEnabled: false,
-  tailscaleServePort: 443,
 };
 
 const advertisedEndpoints: ReadonlyArray<AdvertisedEndpoint> = [];

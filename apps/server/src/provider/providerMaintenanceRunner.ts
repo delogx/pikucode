@@ -6,8 +6,7 @@ import {
   type ServerProvider,
   type ServerProviderUpdatedPayload,
   type ServerProviderUpdateState,
-} from "@t3tools/contracts";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
+} from "@piku/contracts";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
@@ -54,7 +53,7 @@ export interface ProviderMaintenanceRunnerShape {
 export class ProviderMaintenanceRunner extends Context.Service<
   ProviderMaintenanceRunner,
   ProviderMaintenanceRunnerShape
->()("t3/provider/providerMaintenanceRunner") {}
+>()("piku/provider/providerMaintenanceRunner") {}
 
 class ProviderMaintenanceCommandError extends Data.TaggedError("ProviderMaintenanceCommandError")<{
   readonly message: string;
@@ -76,23 +75,15 @@ const runProviderMaintenanceCommandWithSpawner = Effect.fn("ProviderMaintenanceR
   }) {
     const collectCommandResult = Effect.fn("ProviderMaintenanceRunner.collectCommandResult")(
       function* () {
-        // Resolve the executable for the host platform before spawning. On
-        // Windows the update tools are batch shims (e.g. `npm` -> `npm.cmd`),
-        // which a bare ChildProcess.spawn cannot launch (spawn npm ENOENT);
-        // resolveSpawnCommand finds the real `.cmd` and routes it through the
-        // shell. On Linux/macOS (incl. the WSL backend) this is a no-op.
-        const resolved = yield* resolveSpawnCommand(input.command, input.args);
-        const child = yield* input.spawner
-          .spawn(ChildProcess.make(resolved.command, resolved.args, { shell: resolved.shell }))
-          .pipe(
-            Effect.mapError(
-              (cause) =>
-                new ProviderMaintenanceCommandError({
-                  message: `Failed to run update command ${input.command}: ${cause.message}`,
-                  cause,
-                }),
-            ),
-          );
+        const child = yield* input.spawner.spawn(ChildProcess.make(input.command, input.args)).pipe(
+          Effect.mapError(
+            (cause) =>
+              new ProviderMaintenanceCommandError({
+                message: `Failed to run update command ${input.command}: ${cause.message}`,
+                cause,
+              }),
+          ),
+        );
         yield* Effect.addFinalizer(() => child.kill().pipe(Effect.ignore));
 
         const [stdout, stderr, exitCode] = yield* Effect.all(
@@ -368,9 +359,9 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
                 startedAt,
                 finishedAt,
                 message: couldNotVerify
-                  ? "Update command completed, but T3 Code could not verify the provider version."
+                  ? "Update command completed, but Piku Code could not verify the provider version."
                   : stillOutdated
-                    ? "Update command completed, but T3 Code still detects an outdated provider version."
+                    ? "Update command completed, but Piku Code still detects an outdated provider version."
                     : "Provider updated.",
                 output: commandOutput(result),
               }),

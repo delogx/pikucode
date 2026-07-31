@@ -42,10 +42,9 @@ import {
   resolvePackageManagerUserAgent,
   stageLinuxIconSize,
   STAGE_INSTALL_ARGS,
-  WINDOWS_ASAR_UNPACK,
 } from "./build-desktop-artifact.ts";
 import { BRAND_ASSET_PATHS } from "./lib/brand-assets.ts";
-import { HostProcessArchitecture, HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import { HostProcessArchitecture, HostProcessPlatform } from "@piku/shared/hostProcess";
 
 function mockProcess(exitCode: number) {
   return ChildProcessSpawner.makeHandle({
@@ -91,21 +90,19 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
   });
 
   it("switches desktop packaging product names to nightly for nightly builds", () => {
-    assert.equal(resolveDesktopProductName("0.0.17"), "T3 Code (Alpha)");
-    assert.equal(resolveDesktopProductName("0.0.17-nightly.20260413.42"), "T3 Code (Nightly)");
+    assert.equal(resolveDesktopProductName("0.0.17"), "Piku Code (Alpha)");
+    assert.equal(resolveDesktopProductName("0.0.17-nightly.20260413.42"), "Piku Code (Nightly)");
   });
 
   it("switches desktop packaging icons to the nightly artwork for nightly versions", () => {
     assert.deepStrictEqual(resolveDesktopBuildIconAssets("0.0.17"), {
       macIconPng: BRAND_ASSET_PATHS.productionMacIconPng,
       linuxIconPng: BRAND_ASSET_PATHS.productionLinuxIconPng,
-      windowsIconIco: BRAND_ASSET_PATHS.productionWindowsIconIco,
     });
 
     assert.deepStrictEqual(resolveDesktopBuildIconAssets("0.0.17-nightly.20260413.42"), {
       macIconPng: BRAND_ASSET_PATHS.nightlyMacIconPng,
       linuxIconPng: BRAND_ASSET_PATHS.nightlyLinuxIconPng,
-      windowsIconIco: BRAND_ASSET_PATHS.nightlyWindowsIconIco,
     });
   });
 
@@ -121,7 +118,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
           ConfigProvider.layer(
             ConfigProvider.fromEnv({
               env: {
-                T3CODE_DESKTOP_UPDATE_REPOSITORY: "pingdotgg/t3code",
+                PIKU_DESKTOP_UPDATE_REPOSITORY: "pingdotgg/pikucode",
               },
             }),
           ),
@@ -132,7 +129,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
           ConfigProvider.layer(
             ConfigProvider.fromEnv({
               env: {
-                GITHUB_REPOSITORY: "pingdotgg/t3code",
+                GITHUB_REPOSITORY: "pingdotgg/pikucode",
               },
             }),
           ),
@@ -142,13 +139,13 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       assert.deepStrictEqual(latestConfig, {
         provider: "github",
         owner: "pingdotgg",
-        repo: "t3code",
+        repo: "pikucode",
         releaseType: "release",
       });
       assert.deepStrictEqual(nightlyConfig, {
         provider: "github",
         owner: "pingdotgg",
-        repo: "t3code",
+        repo: "pikucode",
         releaseType: "prerelease",
         channel: "nightly",
       });
@@ -160,10 +157,8 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       resolveDesktopRuntimeDependencies(
         {
           "@effect/platform-node": "catalog:",
-          "@t3tools/contracts": "workspace:*",
-          "@t3tools/shared": "workspace:*",
-          "@t3tools/ssh": "workspace:*",
-          "@t3tools/tailscale": "workspace:*",
+          "@piku/contracts": "workspace:*",
+          "@piku/shared": "workspace:*",
           effect: "catalog:",
           electron: "41.5.0",
         },
@@ -183,7 +178,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     assert.deepStrictEqual(
       createStagePatchedDependencies(
         {
-          "@expo/metro-config@56.0.13": "patches/@expo%2Fmetro-config@56.0.13.patch",
+          "@unused/pkg@1.0.0": "patches/@unused%2Fpkg@1.0.0.patch",
           "@ff-labs/fff-node@0.9.4": "patches/@ff-labs__fff-node@0.9.4.patch",
           "@pierre/diffs@1.1.20": "patches/@pierre%2Fdiffs@1.1.20.patch",
           "alchemy@2.0.0-beta.49": "patches/alchemy@2.0.0-beta.49.patch",
@@ -205,7 +200,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     assert.deepStrictEqual(
       createStagePatchedDependencies(
         {
-          "@expo/metro-config@56.0.13": "patches/@expo%2Fmetro-config@56.0.13.patch",
+          "@unused/pkg@1.0.0": "patches/@unused%2Fpkg@1.0.0.patch",
         },
         { effect: "4.0.0-beta.73" },
       ),
@@ -228,18 +223,9 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         libc: ["glibc"],
       },
     });
-    // Windows artifacts also bundle the same-architecture WSL (Linux, glibc) backend, so the
-    // staged install must fetch its native optional deps (e.g. ffi-rs) too.
-    assert.deepStrictEqual(createStageWorkspaceConfig({ platform: "win", arch: "x64" }), {
+    assert.deepStrictEqual(createStageWorkspaceConfig({ platform: "linux", arch: "arm64" }), {
       supportedArchitectures: {
-        os: ["win32", "linux"],
-        cpu: ["x64"],
-        libc: ["glibc"],
-      },
-    });
-    assert.deepStrictEqual(createStageWorkspaceConfig({ platform: "win", arch: "arm64" }), {
-      supportedArchitectures: {
-        os: ["win32", "linux"],
+        os: ["linux"],
         cpu: ["arm64"],
         libc: ["glibc"],
       },
@@ -336,25 +322,14 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         undefined,
         undefined,
       );
-      const win = yield* createBuildConfig(
-        "win",
-        "nsis",
-        "1.2.3",
-        false,
-        false,
-        undefined,
-        undefined,
-      );
-
       assert.notProperty(mac, "asarUnpack");
       assert.notProperty(linux, "asarUnpack");
-      assert.deepStrictEqual(win.asarUnpack, WINDOWS_ASAR_UNPACK);
       // Linux must register the renderer schemes so the generated .desktop
-      // entry advertises MimeType=x-scheme-handler/t3code; for OAuth deep links.
+      // entry advertises MimeType=x-scheme-handler/pikucode; for OAuth deep links.
       assert.deepStrictEqual((linux.linux as Record<string, unknown>).protocols, [
-        { name: "T3 Code", schemes: ["t3code", "t3code-dev"] },
+        { name: "Piku Code", schemes: ["pikucode", "piku-dev"] },
       ]);
-      for (const config of [mac, linux, win]) {
+      for (const config of [mac, linux]) {
         assert.deepStrictEqual(config.electronLanguages, DESKTOP_ELECTRON_LANGUAGES);
         assert.deepStrictEqual(config.files, DESKTOP_FILE_EXCLUSIONS);
       }
@@ -403,24 +378,24 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
 
   it("derives macOS passkey signing configuration from the Clerk publishable key", () => {
     const configuration = resolveMacPasskeySigningConfiguration({
-      T3CODE_APPLE_TEAM_ID: "abc1234567",
-      T3CODE_MACOS_PROVISIONING_PROFILE: "/tmp/t3code.provisionprofile",
-      T3CODE_CLERK_PUBLISHABLE_KEY: `pk_test_${btoa("example.clerk.accounts.dev$")}`,
+      PIKU_APPLE_TEAM_ID: "abc1234567",
+      PIKU_MACOS_PROVISIONING_PROFILE: "/tmp/pikucode.provisionprofile",
+      PIKU_CLERK_PUBLISHABLE_KEY: `pk_test_${btoa("example.clerk.accounts.dev$")}`,
     });
 
     assert.deepStrictEqual(configuration, {
-      appId: "com.t3tools.t3code",
+      appId: "dev.pikucode.app",
       teamId: "ABC1234567",
       rpDomains: ["example.clerk.accounts.dev"],
-      provisioningProfilePath: "/tmp/t3code.provisionprofile",
+      provisioningProfilePath: "/tmp/pikucode.provisionprofile",
     });
   });
 
   it("normalizes explicit macOS passkey RP domains and renders required entitlements", () => {
     const configuration = resolveMacPasskeySigningConfiguration({
-      T3CODE_APPLE_TEAM_ID: "ABC1234567",
-      T3CODE_MACOS_PROVISIONING_PROFILE: "/tmp/t3code.provisionprofile",
-      T3CODE_CLERK_PASSKEY_RP_DOMAINS:
+      PIKU_APPLE_TEAM_ID: "ABC1234567",
+      PIKU_MACOS_PROVISIONING_PROFILE: "/tmp/pikucode.provisionprofile",
+      PIKU_CLERK_PASSKEY_RP_DOMAINS:
         " Clerk.Example.com,example.clerk.accounts.dev,clerk.example.com ",
     });
     const entitlements = renderMacPasskeyEntitlements(configuration);
@@ -429,7 +404,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       "clerk.example.com",
       "example.clerk.accounts.dev",
     ]);
-    assert.include(entitlements, "<string>ABC1234567.com.t3tools.t3code</string>");
+    assert.include(entitlements, "<string>ABC1234567.dev.pikucode.app</string>");
     assert.include(entitlements, "<string>webcredentials:clerk.example.com</string>");
     assert.include(entitlements, "<string>webcredentials:example.clerk.accounts.dev</string>");
     assert.include(entitlements, "<key>com.apple.security.cs.allow-jit</key>");
@@ -446,21 +421,21 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     };
 
     const missingProfileError = captureError({
-      T3CODE_APPLE_TEAM_ID: "ABC1234567",
-      T3CODE_CLERK_PASSKEY_RP_DOMAINS: "example.clerk.accounts.dev",
+      PIKU_APPLE_TEAM_ID: "ABC1234567",
+      PIKU_CLERK_PASSKEY_RP_DOMAINS: "example.clerk.accounts.dev",
     });
     assert.instanceOf(missingProfileError, MissingMacPasskeyProvisioningProfileError);
     assert.equal(
       missingProfileError.message,
-      "T3CODE_MACOS_PROVISIONING_PROFILE must point to an Associated Domains provisioning profile.",
+      "PIKU_MACOS_PROVISIONING_PROFILE must point to an Associated Domains provisioning profile.",
     );
 
     const unsafeDomain =
       "https://domain-user:domain-secret@example.clerk.accounts.dev/path?token=query-secret";
     const invalidDomainError = captureError({
-      T3CODE_APPLE_TEAM_ID: "ABC1234567",
-      T3CODE_MACOS_PROVISIONING_PROFILE: "/tmp/t3code.provisionprofile",
-      T3CODE_CLERK_PASSKEY_RP_DOMAINS: unsafeDomain,
+      PIKU_APPLE_TEAM_ID: "ABC1234567",
+      PIKU_MACOS_PROVISIONING_PROFILE: "/tmp/pikucode.provisionprofile",
+      PIKU_CLERK_PASSKEY_RP_DOMAINS: unsafeDomain,
     });
     assert.instanceOf(invalidDomainError, InvalidMacPasskeyRpDomainError);
     assert.equal(invalidDomainError.reason, "scheme-not-allowed");
@@ -476,20 +451,20 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     assert.throws(
       () =>
         resolveMacPasskeySigningConfiguration({
-          T3CODE_APPLE_TEAM_ID: "ABC1234567",
-          T3CODE_MACOS_PROVISIONING_PROFILE: "/tmp/t3code.provisionprofile",
-          T3CODE_CLERK_PASSKEY_RP_DOMAINS: "example.clerk.accounts.dev:8443",
+          PIKU_APPLE_TEAM_ID: "ABC1234567",
+          PIKU_MACOS_PROVISIONING_PROFILE: "/tmp/pikucode.provisionprofile",
+          PIKU_CLERK_PASSKEY_RP_DOMAINS: "example.clerk.accounts.dev:8443",
         }),
       /Invalid passkey RP domain/u,
     );
     const invalidPublishableKeyError = captureError({
-      T3CODE_APPLE_TEAM_ID: "ABC1234567",
-      T3CODE_MACOS_PROVISIONING_PROFILE: "/tmp/t3code.provisionprofile",
-      T3CODE_CLERK_PUBLISHABLE_KEY: "pk_test_%",
+      PIKU_APPLE_TEAM_ID: "ABC1234567",
+      PIKU_MACOS_PROVISIONING_PROFILE: "/tmp/pikucode.provisionprofile",
+      PIKU_CLERK_PUBLISHABLE_KEY: "pk_test_%",
     });
     assert.instanceOf(invalidPublishableKeyError, InvalidMacPasskeyPublishableKeyError);
     assert.ok(invalidPublishableKeyError.cause);
-    assert.equal(invalidPublishableKeyError.message, "T3CODE_CLERK_PUBLISHABLE_KEY is invalid.");
+    assert.equal(invalidPublishableKeyError.message, "PIKU_CLERK_PUBLISHABLE_KEY is invalid.");
     assert.notProperty(invalidPublishableKeyError, "publishableKey");
     assert.notInclude(invalidPublishableKeyError.message, "pk_test_%");
   });
@@ -520,35 +495,16 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     Effect.gen(function* () {
       const config = yield* createBuildConfig("mac", "dmg", "1.2.3", true, false, undefined, {
         entitlementsPath: "/tmp/entitlements.mac.plist",
-        provisioningProfilePath: "/tmp/t3code.provisionprofile",
+        provisioningProfilePath: "/tmp/pikucode.provisionprofile",
       });
 
       const mac = config.mac as Record<string, unknown>;
-      assert.equal(config.appId, "com.t3tools.t3code");
+      assert.equal(config.appId, "dev.pikucode.app");
       assert.equal(mac.entitlements, "/tmp/entitlements.mac.plist");
-      assert.equal(mac.provisioningProfile, "/tmp/t3code.provisionprofile");
+      assert.equal(mac.provisioningProfile, "/tmp/pikucode.provisionprofile");
       assert.deepStrictEqual(mac.protocols, [
-        { name: "T3 Code", schemes: ["t3code", "t3code-dev"] },
+        { name: "Piku Code", schemes: ["pikucode", "piku-dev"] },
       ]);
-    }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })))),
-  );
-
-  it.effect("keeps executable resource editing enabled for unsigned Windows builds", () =>
-    Effect.gen(function* () {
-      const config = yield* createBuildConfig(
-        "win",
-        "nsis",
-        "1.2.3",
-        false,
-        false,
-        undefined,
-        undefined,
-      );
-
-      const win = config.win as Record<string, unknown>;
-      assert.equal(win.icon, "icon.ico");
-      assert.equal(win.signAndEditExecutable, true);
-      assert.notProperty(win, "azureSignOptions");
     }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })))),
   );
 
@@ -566,11 +522,10 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     assert.deepStrictEqual(resolveResourceMonitorRustTargets("linux", "x64"), [
       "x86_64-unknown-linux-gnu",
     ]);
-    assert.deepStrictEqual(resolveResourceMonitorRustTargets("win", "arm64"), [
-      "aarch64-pc-windows-msvc",
+    assert.deepStrictEqual(resolveResourceMonitorRustTargets("linux", "arm64"), [
+      "aarch64-unknown-linux-gnu",
     ]);
-    assert.equal(resourceMonitorExecutableName("mac"), "t3-resource-monitor");
-    assert.equal(resourceMonitorExecutableName("win"), "t3-resource-monitor.exe");
+    assert.equal(resourceMonitorExecutableName(), "piku-resource-monitor");
   });
   it("promotes target fff binaries to direct staged dependencies", () => {
     assert.deepStrictEqual(resolveFffNativeDependencies("mac", "arm64", "0.9.4"), {
@@ -579,9 +534,6 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     assert.deepStrictEqual(resolveFffNativeDependencies("mac", "universal", "0.9.4"), {
       "@ff-labs/fff-bin-darwin-arm64": "0.9.4",
       "@ff-labs/fff-bin-darwin-x64": "0.9.4",
-    });
-    assert.deepStrictEqual(resolveFffNativeDependencies("win", "x64", "0.9.4"), {
-      "@ff-labs/fff-bin-win32-x64": "0.9.4",
     });
     assert.deepStrictEqual(resolveFffNativeDependencies("linux", "x64", "0.9.4"), {
       "@ff-labs/fff-bin-linux-x64-gnu": "0.9.4",
@@ -602,12 +554,6 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       {
         packageName: "@clerk/electron-passkeys-darwin-x64",
         binaryFileName: "electron-passkeys.darwin-x64.node",
-      },
-    ]);
-    assert.deepStrictEqual(resolveClerkPasskeyNativeArtifacts("win", "x64"), [
-      {
-        packageName: "@clerk/electron-passkeys-win32-x64-msvc",
-        binaryFileName: "electron-passkeys.win32-x64-msvc.node",
       },
     ]);
     assert.deepStrictEqual(resolveClerkPasskeyNativeArtifacts("linux", "x64"), []);
@@ -678,33 +624,25 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         verbose: Option.none(),
         mockUpdates: Option.none(),
         mockUpdateServerPort: Option.none(),
-        wslPrebuild: Option.none(),
       }).pipe(
         Effect.provide(
           Layer.mergeAll(
-            Layer.succeed(HostProcessPlatform, "win32"),
-            Layer.succeed(HostProcessArchitecture, "x64"),
-            ConfigProvider.layer(
-              ConfigProvider.fromEnv({
-                env: {
-                  PROCESSOR_ARCHITECTURE: "AMD64",
-                  PROCESSOR_ARCHITEW6432: "ARM64",
-                },
-              }),
-            ),
+            Layer.succeed(HostProcessPlatform, "linux"),
+            Layer.succeed(HostProcessArchitecture, "arm64"),
+            ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })),
           ),
         ),
       );
 
-      assert.equal(resolved.platform, "win");
-      assert.equal(resolved.target, "nsis");
+      assert.equal(resolved.platform, "linux");
+      assert.equal(resolved.target, "AppImage");
       assert.equal(resolved.arch, "arm64");
     }),
   );
 
-  it.effect("rejects universal builds on Linux and Windows before staging binaries", () =>
+  it.effect("rejects universal builds on Linux before staging binaries", () =>
     Effect.gen(function* () {
-      for (const platform of ["linux", "win"] as const) {
+      for (const platform of ["linux"] as const) {
         const error = yield* Effect.flip(
           resolveBuildOptions({
             platform: Option.some(platform),
@@ -718,7 +656,6 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
             verbose: Option.none(),
             mockUpdates: Option.none(),
             mockUpdateServerPort: Option.none(),
-            wslPrebuild: Option.none(),
           }),
         );
 
@@ -742,17 +679,16 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         verbose: Option.some(false),
         mockUpdates: Option.some(false),
         mockUpdateServerPort: Option.none(),
-        wslPrebuild: Option.none(),
       }).pipe(
         Effect.provide(
           ConfigProvider.layer(
             ConfigProvider.fromEnv({
               env: {
-                T3CODE_DESKTOP_SKIP_BUILD: "true",
-                T3CODE_DESKTOP_KEEP_STAGE: "true",
-                T3CODE_DESKTOP_SIGNED: "true",
-                T3CODE_DESKTOP_VERBOSE: "true",
-                T3CODE_DESKTOP_MOCK_UPDATES: "true",
+                PIKU_DESKTOP_SKIP_BUILD: "true",
+                PIKU_DESKTOP_KEEP_STAGE: "true",
+                PIKU_DESKTOP_SIGNED: "true",
+                PIKU_DESKTOP_VERBOSE: "true",
+                PIKU_DESKTOP_MOCK_UPDATES: "true",
               },
             }),
           ),

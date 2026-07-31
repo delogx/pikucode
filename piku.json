@@ -1,0 +1,12 @@
+{
+  "$schema": "https://pikucode.dev/schema/piku.json",
+  "iconPath": "assets/dev/blueprint-web-apple-touch-180.png",
+  "scripts": [
+    {
+      "name": "Setup Worktree",
+      "command": "vp i && ln -sf $PIKU_PROJECT_ROOT/.env .env",
+      "icon": "configure",
+      "runOnWorktreeCreate": true
+    }
+  ]
+}

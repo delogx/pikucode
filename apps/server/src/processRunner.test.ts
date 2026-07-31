@@ -9,8 +9,6 @@ import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
 import { TestClock } from "effect/testing";
 import { ChildProcessSpawner } from "effect/unstable/process";
-import { HostProcessEnvironment, HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { SpawnExecutableResolution } from "@t3tools/shared/shell";
 
 import * as ProcessRunner from "./processRunner.ts";
 
@@ -124,44 +122,6 @@ describe("runProcess", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("resolves and escapes Windows command shims before spawning", () => {
-    const spawner = makeSpawner((command) =>
-      Effect.sync(() => {
-        expect(command.command).toBe('^"C:\\Users\\tester\\AppData\\Roaming\\npm\\az.cmd^"');
-        expect(command.args).toEqual([
-          '^"repos^"',
-          '^"pr^"',
-          '^"list^"',
-          '^"--source-branch^"',
-          '^"feature^ ^&^ release^"',
-        ]);
-        expect(command.options.shell).toBe(true);
-        return makeHandle({ stdout: "[]" });
-      }),
-    );
-
-    return runWith(spawner)({
-      command: "az",
-      args: ["repos", "pr", "list", "--source-branch", "feature & release"],
-      env: { AZURE_CONFIG_DIR: "C:\\Users\\tester\\.azure" },
-    }).pipe(
-      Effect.provideService(HostProcessPlatform, "win32"),
-      Effect.provideService(HostProcessEnvironment, {
-        PATH: "C:\\Users\\tester\\AppData\\Roaming\\npm",
-        PATHEXT: ".COM;.EXE;.BAT;.CMD",
-      }),
-      Effect.provideService(SpawnExecutableResolution, (_command, _platform, env) =>
-        env.PATH === "C:\\Users\\tester\\AppData\\Roaming\\npm" &&
-        env.AZURE_CONFIG_DIR === "C:\\Users\\tester\\.azure"
-          ? "C:\\Users\\tester\\AppData\\Roaming\\npm\\az.cmd"
-          : undefined,
-      ),
-      Effect.map((result) => {
-        expect(result.stdout).toBe("[]");
-      }),
-    );
-  });
-
   it.effect("preserves resolved spawn context and cause", () =>
     Effect.gen(function* () {
       const cause = PlatformError.systemError({
@@ -188,9 +148,6 @@ describe("runProcess", () => {
         argumentCount: 2,
         cwd: "/logical",
         spawnCwd: "/actual",
-        resolvedCommand: "fake",
-        resolvedArgumentCount: 2,
-        shell: false,
       });
       expect(error.cause).toBe(cause);
       expect(error.message).toBe("Failed to spawn process 'fake' in '/actual'");
@@ -397,18 +354,6 @@ describe("runProcess", () => {
         stdoutTruncated: false,
         stderrTruncated: false,
       });
-    }),
-  );
-});
-
-describe("isWindowsCommandNotFound", () => {
-  it.effect("matches the localized German cmd.exe error text", () =>
-    Effect.gen(function* () {
-      const isCommandNotFound = yield* ProcessRunner.isWindowsCommandNotFound(
-        1,
-        "wird nicht als interner oder externer Befehl, betriebsfahiges Programm oder Batch-Datei erkannt",
-      ).pipe(Effect.provideService(HostProcessPlatform, "win32"));
-      expect(isCommandNotFound).toBe(true);
     }),
   );
 });

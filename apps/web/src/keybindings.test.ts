@@ -5,7 +5,7 @@ import {
   type KeybindingShortcut,
   type KeybindingWhenNode,
   type ResolvedKeybindingsConfig,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import {
   formatShortcutLabel,
   isChatNewShortcut,
@@ -169,14 +169,14 @@ describe("isTerminalToggleShortcut", () => {
 
   it("matches Ctrl+J on non-macOS", () => {
     assert.isTrue(
-      isTerminalToggleShortcut(event({ ctrlKey: true }), DEFAULT_BINDINGS, { platform: "Win32" }),
+      isTerminalToggleShortcut(event({ ctrlKey: true }), DEFAULT_BINDINGS, { platform: "Linux" }),
     );
   });
 
   it("matches Ctrl+J on non-macOS while terminalFocus is true", () => {
     assert.isTrue(
       isTerminalToggleShortcut(event({ ctrlKey: true }), DEFAULT_BINDINGS, {
-        platform: "Win32",
+        platform: "Linux",
         context: { terminalFocus: true },
       }),
     );
@@ -262,19 +262,19 @@ describe("split/new/close terminal shortcuts", () => {
     ]);
     assert.isTrue(
       isTerminalSplitShortcut(event({ key: "\\", ctrlKey: true }), keybindings, {
-        platform: "Win32",
+        platform: "Linux",
         context: { terminalOpen: true, terminalFocus: false },
       }),
     );
     assert.isFalse(
       isTerminalSplitShortcut(event({ key: "\\", ctrlKey: true }), keybindings, {
-        platform: "Win32",
+        platform: "Linux",
         context: { terminalOpen: false, terminalFocus: false },
       }),
     );
     assert.isTrue(
       isTerminalNewShortcut(event({ key: "n", ctrlKey: true, shiftKey: true }), keybindings, {
-        platform: "Win32",
+        platform: "Linux",
         context: { terminalOpen: true, terminalFocus: false },
       }),
     );
@@ -782,7 +782,7 @@ describe("terminalNavigationShortcutData", () => {
 
   it("maps Ctrl+Arrow on non-macOS to word movement", () => {
     assert.strictEqual(
-      terminalNavigationShortcutData(event({ key: "ArrowLeft", ctrlKey: true }), "Win32"),
+      terminalNavigationShortcutData(event({ key: "ArrowLeft", ctrlKey: true }), "Linux"),
       "\u001bb",
     );
     assert.strictEqual(

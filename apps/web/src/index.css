@@ -11,29 +11,29 @@ html[data-mobile-composer-route-transition="true"]::view-transition-new(root) {
   animation: none;
 }
 
-html[data-mobile-composer-route-transition="true"]::view-transition-group(t3-mobile-composer) {
+html[data-mobile-composer-route-transition="true"]::view-transition-group(piku-mobile-composer) {
   animation-duration: 180ms;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-html[data-mobile-composer-route-transition="true"]::view-transition-image-pair(t3-mobile-composer) {
+html[data-mobile-composer-route-transition="true"]::view-transition-image-pair(piku-mobile-composer) {
   isolation: isolate;
 }
 
-html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobile-composer) {
-  animation: t3-mobile-composer-old 180ms linear both;
+html[data-mobile-composer-route-transition="true"]::view-transition-old(piku-mobile-composer) {
+  animation: piku-mobile-composer-old 180ms linear both;
   mix-blend-mode: normal;
 }
 
-html[data-mobile-composer-route-transition="true"]::view-transition-new(t3-mobile-composer) {
-  animation: t3-mobile-composer-new 180ms linear both;
+html[data-mobile-composer-route-transition="true"]::view-transition-new(piku-mobile-composer) {
+  animation: piku-mobile-composer-new 180ms linear both;
   mix-blend-mode: normal;
 }
 
 /* The expanded and compact composers have different internal layouts. Use a
    brief crossfade while their shared wrapper moves so the layout change does
    not read as a single-frame cut. */
-@keyframes t3-mobile-composer-old {
+@keyframes piku-mobile-composer-old {
   0%,
   35% {
     opacity: 1;
@@ -44,7 +44,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-new(t3-mobil
   }
 }
 
-@keyframes t3-mobile-composer-new {
+@keyframes piku-mobile-composer-new {
   0%,
   35% {
     opacity: 0;
@@ -55,16 +55,16 @@ html[data-mobile-composer-route-transition="true"]::view-transition-new(t3-mobil
   }
 }
 
-html[data-mobile-composer-route-transition="true"]::view-transition-group(t3-mobile-draft-headline) {
+html[data-mobile-composer-route-transition="true"]::view-transition-group(piku-mobile-draft-headline) {
   animation-duration: 130ms;
 }
 
-html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobile-draft-headline) {
-  animation: t3-mobile-draft-headline-exit 130ms cubic-bezier(0.4, 0, 1, 1) both;
+html[data-mobile-composer-route-transition="true"]::view-transition-old(piku-mobile-draft-headline) {
+  animation: piku-mobile-draft-headline-exit 130ms cubic-bezier(0.4, 0, 1, 1) both;
   mix-blend-mode: normal;
 }
 
-@keyframes t3-mobile-draft-headline-exit {
+@keyframes piku-mobile-draft-headline-exit {
   from {
     opacity: 1;
     transform: translateY(0);
@@ -991,10 +991,6 @@ body {
   padding-right: var(--desktop-window-right-resize-inset);
 }
 
-.electron-windows {
-  --desktop-window-right-resize-inset: 6px;
-}
-
 /* App-chrome grain. Baked into each surface's own background (behind
    content) rather than a fixed overlay on top: a full-viewport overlay
    forces the compositor to re-blend every frame any animation produces,
@@ -1049,11 +1045,11 @@ code {
   background: var(--app-scrollbar-thumb-hover);
 }
 
-.t3-ghostty-canvas {
+.piku-ghostty-canvas {
   cursor: text;
 }
 
-.t3-ghostty-scrollbar {
+.piku-ghostty-scrollbar {
   position: absolute;
   z-index: 1;
   top: 4px;
@@ -1064,7 +1060,7 @@ code {
   touch-action: none;
 }
 
-.t3-ghostty-scrollbar-thumb {
+.piku-ghostty-scrollbar-thumb {
   position: absolute;
   top: 0;
   right: 1px;
@@ -1074,8 +1070,8 @@ code {
   transition: background-color 120ms ease-out;
 }
 
-.t3-ghostty-scrollbar:hover .t3-ghostty-scrollbar-thumb,
-.t3-ghostty-scrollbar:focus-visible .t3-ghostty-scrollbar-thumb {
+.piku-ghostty-scrollbar:hover .piku-ghostty-scrollbar-thumb,
+.piku-ghostty-scrollbar:focus-visible .piku-ghostty-scrollbar-thumb {
   background: var(--app-scrollbar-thumb-hover);
 }
 

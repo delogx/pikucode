@@ -1,5 +1,5 @@
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
+import { scopeThreadRef } from "@piku/client-runtime/environment";
+import type { EnvironmentId, ScopedThreadRef } from "@piku/contracts";
 
 import { useProjects } from "~/state/entities";
 

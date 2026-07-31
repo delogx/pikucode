@@ -2,7 +2,7 @@ import {
   DesktopBackendBootstrap,
   type DesktopBackendBootstrap as DesktopBackendBootstrapValue,
   DesktopTelemetryControlMessage,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import { assert, describe, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
@@ -44,11 +44,9 @@ const baseConfig: DesktopBackendManager.DesktopBackendStartConfig = {
     mode: "desktop",
     noBrowser: true,
     port: 3773,
-    t3Home: "/tmp/t3",
+    pikuHome: "/tmp/piku",
     host: "127.0.0.1",
     desktopBootstrapToken: "token",
-    tailscaleServeEnabled: false,
-    tailscaleServePort: 443,
     desktopTelemetryFd: 4,
     desktopTelemetryControlFd: 5,
   },
@@ -56,12 +54,10 @@ const baseConfig: DesktopBackendManager.DesktopBackendStartConfig = {
   extendEnv: true,
   httpBaseUrl: new URL("http://127.0.0.1:3773"),
   captureOutput: true,
-  preflightFailure: Option.none(),
 };
 
 const configWithObservability: DesktopBackendBootstrapValue = {
   ...baseConfig.bootstrap,
-  tailscaleServeEnabled: true,
   desktopTelemetryFd: 4,
   otlpTracesUrl: "http://127.0.0.1:4318/v1/traces",
 };
@@ -120,9 +116,6 @@ interface MakeInstanceInput {
   readonly backendOutputLog?: Partial<DesktopObservability.DesktopBackendOutputLogShape>;
   readonly onReady?: Effect.Effect<void>;
   readonly onShutdown?: Effect.Effect<void>;
-  readonly onPreflightFailed?: (
-    failure: DesktopBackendManager.PreflightFailure,
-  ) => Effect.Effect<boolean>;
   readonly config?: DesktopBackendManager.DesktopBackendStartConfig;
   readonly configResolve?: Effect.Effect<
     DesktopBackendManager.DesktopBackendStartConfig,
@@ -171,11 +164,10 @@ function makeTestInstance(input: MakeInstanceInput) {
 
   const instance = DesktopBackendManager.makeBackendInstance({
     id: DesktopBackendManager.PRIMARY_INSTANCE_ID,
-    label: Effect.succeed("Windows"),
+    label: Effect.succeed("Local environment"),
     configResolve: input.configResolve ?? Effect.succeed(input.config ?? baseConfig),
     ...(input.onReady ? { onReady: () => input.onReady! } : {}),
     ...(input.onShutdown ? { onShutdown: () => input.onShutdown! } : {}),
-    ...(input.onPreflightFailed ? { onPreflightFailed: input.onPreflightFailed } : {}),
   });
 
   return instance.pipe(Effect.provide(servicesLayer));
@@ -285,7 +277,7 @@ describe("DesktopBackendManager", () => {
         }).pipe(Effect.flip, Effect.forkChild);
 
         const request = yield* Deferred.await(requested);
-        assert.equal(request.url, "http://127.0.0.1:3773/.well-known/t3/environment");
+        assert.equal(request.url, "http://127.0.0.1:3773/.well-known/piku/environment");
 
         yield* TestClock.adjust(Duration.millis(50));
         const error = yield* Fiber.join(readiness);
@@ -295,12 +287,12 @@ describe("DesktopBackendManager", () => {
         assert.equal(error.entryPath, "/server/bin.mjs");
         assert.equal(error.cwd, "/server");
         assert.equal(error.httpBaseUrl.href, "http://127.0.0.1:3773/");
-        assert.equal(error.readinessUrl.href, "http://127.0.0.1:3773/.well-known/t3/environment");
+        assert.equal(error.readinessUrl.href, "http://127.0.0.1:3773/.well-known/piku/environment");
         assert.equal(error.timeoutMs, 50);
         assert.isDefined(error.cause);
         assert.equal(
           error.message,
-          "Timed out after 50ms waiting for desktop backend readiness at http://127.0.0.1:3773/.well-known/t3/environment.",
+          "Timed out after 50ms waiting for desktop backend readiness at http://127.0.0.1:3773/.well-known/piku/environment.",
         );
       }).pipe(Effect.provide(layer));
     }),
@@ -687,15 +679,15 @@ describe("DesktopBackendManager", () => {
         yield* Deferred.await(firstRequest);
 
         assert.equal(readyCount, 0);
-        assert.deepEqual(requestUrls, ["http://127.0.0.1:3773/.well-known/t3/environment"]);
+        assert.deepEqual(requestUrls, ["http://127.0.0.1:3773/.well-known/piku/environment"]);
 
         yield* TestClock.adjust(Duration.millis(100));
         yield* Queue.take(exited);
 
         assert.equal(readyCount, 1);
         assert.deepEqual(requestUrls, [
-          "http://127.0.0.1:3773/.well-known/t3/environment",
-          "http://127.0.0.1:3773/.well-known/t3/environment",
+          "http://127.0.0.1:3773/.well-known/piku/environment",
+          "http://127.0.0.1:3773/.well-known/piku/environment",
         ]);
       }).pipe(Effect.provide(TestClock.layer())),
     ),
@@ -1094,201 +1086,6 @@ describe("DesktopBackendManager", () => {
         assert.equal(yield* Queue.size(starts), 0);
         yield* TestClock.adjust(Duration.millis(1));
         assert.equal(yield* Queue.take(starts), 3);
-      }).pipe(Effect.provide(TestClock.layer())),
-    ),
-  );
-
-  it.effect("does not notify shutdown when a scheduled restart starts from non-ready state", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        let shutdownCount = 0;
-
-        const spawnerLayer = Layer.succeed(
-          ChildProcessSpawner.ChildProcessSpawner,
-          ChildProcessSpawner.make(() => Effect.die("unexpected backend spawn")),
-        );
-
-        const instance = yield* makeTestInstance({
-          spawnerLayer,
-          config: {
-            ...baseConfig,
-            preflightFailure: Option.some({ reason: "preflight failed", fatal: false }),
-          },
-          onShutdown: Effect.sync(() => {
-            shutdownCount += 1;
-          }),
-        });
-
-        yield* instance.start;
-        assert.equal(shutdownCount, 0);
-
-        yield* TestClock.adjust(Duration.millis(500));
-        assert.equal(shutdownCount, 0);
-      }).pipe(Effect.provide(TestClock.layer())),
-    ),
-  );
-
-  it.effect("surfaces a fatal preflight failure once and stops looping after the cap", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const failures: string[] = [];
-        const spawnerLayer = Layer.succeed(
-          ChildProcessSpawner.ChildProcessSpawner,
-          ChildProcessSpawner.make(() => Effect.die("unexpected backend spawn")),
-        );
-
-        const instance = yield* makeTestInstance({
-          spawnerLayer,
-          config: {
-            ...baseConfig,
-            preflightFailure: Option.some({ reason: "Node.js not found", fatal: true }),
-          },
-          onPreflightFailed: (failure) =>
-            Effect.sync(() => {
-              failures.push(failure.reason);
-            }).pipe(Effect.as(false)),
-        });
-
-        yield* instance.start;
-        assert.deepEqual(failures, []);
-
-        // Five fatal attempts with exponential backoff (500ms, 1s, 2s, 4s) reach
-        // the cap, at which point the failure is surfaced exactly once.
-        yield* TestClock.adjust(Duration.millis(500));
-        yield* TestClock.adjust(Duration.seconds(1));
-        yield* TestClock.adjust(Duration.seconds(2));
-        yield* TestClock.adjust(Duration.seconds(4));
-        assert.deepEqual(failures, ["Node.js not found"]);
-
-        // Past the cap the loop stops and nothing else is surfaced.
-        yield* TestClock.adjust(Duration.seconds(8));
-        yield* TestClock.adjust(Duration.seconds(30));
-        assert.deepEqual(failures, ["Node.js not found"]);
-      }).pipe(Effect.provide(TestClock.layer())),
-    ),
-  );
-
-  it.effect("can be started again after a fatal preflight cap once config recovers", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const failing = yield* Ref.make(true);
-        const starts = yield* Queue.unbounded<number>();
-        const spawnerLayer = Layer.succeed(
-          ChildProcessSpawner.ChildProcessSpawner,
-          ChildProcessSpawner.make(() =>
-            Queue.offer(starts, 123).pipe(
-              Effect.as(
-                makeProcess({
-                  exitCode: Effect.never,
-                }),
-              ),
-            ),
-          ),
-        );
-
-        const instance = yield* makeTestInstance({
-          spawnerLayer,
-          configResolve: Ref.get(failing).pipe(
-            Effect.map((isFailing) =>
-              isFailing
-                ? {
-                    ...baseConfig,
-                    preflightFailure: Option.some({
-                      reason: "Node.js not found",
-                      fatal: true,
-                    }),
-                  }
-                : baseConfig,
-            ),
-          ),
-        });
-
-        yield* instance.start;
-        yield* TestClock.adjust(Duration.millis(500));
-        yield* TestClock.adjust(Duration.seconds(1));
-        yield* TestClock.adjust(Duration.seconds(2));
-        yield* TestClock.adjust(Duration.seconds(4));
-        yield* TestClock.adjust(Duration.seconds(8));
-
-        const parked = yield* instance.snapshot;
-        assert.equal(parked.desiredRunning, false);
-        assert.equal(parked.ready, false);
-        assert.isTrue(Option.isNone(parked.activePid));
-        assert.equal(parked.restartScheduled, false);
-        assert.equal(yield* Queue.size(starts), 0);
-
-        yield* Ref.set(failing, false);
-        yield* instance.start;
-
-        assert.equal(yield* Queue.take(starts), 123);
-        const running = yield* instance.snapshot;
-        assert.equal(running.desiredRunning, true);
-        assert.deepEqual(running.activePid, Option.some(123));
-      }).pipe(Effect.provide(TestClock.layer())),
-    ),
-  );
-
-  it.effect("keeps retrying a transient (non-fatal) preflight failure without surfacing", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const failures: string[] = [];
-        const spawnerLayer = Layer.succeed(
-          ChildProcessSpawner.ChildProcessSpawner,
-          ChildProcessSpawner.make(() => Effect.die("unexpected backend spawn")),
-        );
-
-        const instance = yield* makeTestInstance({
-          spawnerLayer,
-          config: {
-            ...baseConfig,
-            preflightFailure: Option.some({ reason: "wslpath conversion failed", fatal: false }),
-          },
-          onPreflightFailed: (failure) =>
-            Effect.sync(() => {
-              failures.push(failure.reason);
-            }).pipe(Effect.as(false)),
-        });
-
-        yield* instance.start;
-        // Well beyond the fatal cap's worth of time: a transient failure must
-        // keep retrying (self-heal) and never surface.
-        yield* TestClock.adjust(Duration.minutes(2));
-        assert.deepEqual(failures, []);
-      }).pipe(Effect.provide(TestClock.layer())),
-    ),
-  );
-
-  it.effect("surfaces a bounded transient preflight failure after its retry limit", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const failures: string[] = [];
-        const spawnerLayer = Layer.succeed(
-          ChildProcessSpawner.ChildProcessSpawner,
-          ChildProcessSpawner.make(() => Effect.die("unexpected backend spawn")),
-        );
-
-        const instance = yield* makeTestInstance({
-          spawnerLayer,
-          config: {
-            ...baseConfig,
-            preflightFailure: Option.some({
-              reason: "WSL toolchain probe timed out",
-              fatal: false,
-              retryLimit: 3,
-            }),
-          },
-          onPreflightFailed: (failure) =>
-            Effect.sync(() => {
-              failures.push(failure.reason);
-            }).pipe(Effect.as(false)),
-        });
-
-        yield* instance.start;
-        yield* TestClock.adjust(Duration.millis(500));
-        assert.deepEqual(failures, []);
-
-        yield* TestClock.adjust(Duration.seconds(1));
-        assert.deepEqual(failures, ["WSL toolchain probe timed out"]);
       }).pipe(Effect.provide(TestClock.layer())),
     ),
   );

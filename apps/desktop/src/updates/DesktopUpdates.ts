@@ -5,7 +5,7 @@ import {
   type DesktopUpdateChannel,
   type DesktopUpdateCheckResult,
   type DesktopUpdateState,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -160,7 +160,7 @@ export class DesktopUpdates extends Context.Service<
     readonly download: Effect.Effect<DesktopUpdateActionResult>;
     readonly install: Effect.Effect<DesktopUpdateActionResult>;
   }
->()("@t3tools/desktop/updates/DesktopUpdates") {}
+>()("@piku/desktop/updates/DesktopUpdates") {}
 
 const {
   logInfo: logUpdaterInfo,
@@ -232,7 +232,7 @@ function getAutoUpdateDisabledReason(args: {
     return "Automatic updates are only available in packaged production builds.";
   }
   if (args.disabledByEnv) {
-    return "Automatic updates are disabled by the T3CODE_DISABLE_AUTO_UPDATE setting.";
+    return "Automatic updates are disabled by the PIKU_DISABLE_AUTO_UPDATE setting.";
   }
   if (args.platform === "linux" && !args.appImage) {
     return "Automatic updates on Linux require running the AppImage build.";
@@ -465,13 +465,12 @@ export const make = Effect.gen(function* () {
     yield* Ref.set(updateInstallInFlightRef, true);
 
     return yield* Effect.gen(function* () {
-      // Stop every backend in the pool, not just the primary. With
-      // parallel WSL + Windows backends, leaving the WSL instance up
-      // means quitAndInstall's app.quit() exits before the pool's
-      // scope cascade has a chance to run its stop finalizer, so the
-      // WSL child gets hard-killed by the OS instead of receiving
-      // SIGTERM + grace. Stops run concurrently with the same 5s
-      // budget the primary had on its own.
+      // Stop every backend in the pool, not just the primary. Leaving a
+      // secondary instance up means quitAndInstall's app.quit() exits
+      // before the pool's scope cascade has a chance to run its stop
+      // finalizer, so the child gets hard-killed by the OS instead of
+      // receiving SIGTERM + grace. Stops run concurrently with the same
+      // 5s budget the primary had on its own.
       const instances = yield* pool.list;
       yield* Effect.forEach(
         instances,

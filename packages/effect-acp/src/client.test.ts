@@ -32,8 +32,8 @@ const ExtResponse = jsonRpcResponse(Schema.Struct({ ok: Schema.Boolean }));
 const PromptRequest = jsonRpcRequest("session/prompt", AcpSchema.PromptRequest);
 const PromptResponse = jsonRpcResponse(AcpSchema.PromptResponse);
 const decodePromptRequestLine = Schema.decodeEffect(Schema.fromJsonString(PromptRequest));
-const XAiPromptCompleteNotification = jsonRpcNotification(
-  "_x.ai/session/prompt_complete",
+const ExtPromptCompleteNotification = jsonRpcNotification(
+  "_ext/session/prompt_complete",
   Schema.Struct({
     sessionId: Schema.String,
     promptId: Schema.String,
@@ -41,15 +41,15 @@ const XAiPromptCompleteNotification = jsonRpcNotification(
     agentResult: Schema.NullOr(Schema.Unknown),
   }),
 );
-const XAiQueueChangedNotification = jsonRpcNotification(
-  "_x.ai/queue/changed",
+const ExtQueueChangedNotification = jsonRpcNotification(
+  "_ext/queue/changed",
   Schema.Struct({
     sessionId: Schema.String,
     entries: Schema.Array(Schema.Unknown),
   }),
 );
-const XAiSessionsChangedNotification = jsonRpcNotification(
-  "_x.ai/sessions/changed",
+const ExtSessionsChangedNotification = jsonRpcNotification(
+  "_ext/sessions/changed",
   Schema.Struct({
     upserted: Schema.Array(Schema.Unknown),
     removed: Schema.Array(Schema.Unknown),
@@ -489,7 +489,7 @@ it.layer(NodeServices.layer)("effect-acp client", (it) => {
   );
 
   it.effect(
-    "routes a standard prompt response after Grok extension notifications in the same batch",
+    "routes a standard prompt response after vendor extension notifications in the same batch",
     () =>
       Effect.gen(function* () {
         const { stdio, input, output } = yield* makeInMemoryStdio();
@@ -498,7 +498,7 @@ it.layer(NodeServices.layer)("effect-acp client", (it) => {
 
         const promptFiber = yield* acp.agent
           .prompt({
-            sessionId: "grok-session-1",
+            sessionId: "ext-session-1",
             prompt: [{ type: "text", text: "run the ls command" }],
           })
           .pipe(Effect.forkScoped);
@@ -508,32 +508,32 @@ it.layer(NodeServices.layer)("effect-acp client", (it) => {
 
         const responseBatch = concatBytes(
           yield* Effect.all([
-            encodeJsonl(XAiQueueChangedNotification, {
+            encodeJsonl(ExtQueueChangedNotification, {
               jsonrpc: "2.0",
-              method: "_x.ai/queue/changed",
-              params: { sessionId: "grok-session-1", entries: [] },
+              method: "_ext/queue/changed",
+              params: { sessionId: "ext-session-1", entries: [] },
             }),
-            encodeJsonl(XAiPromptCompleteNotification, {
+            encodeJsonl(ExtPromptCompleteNotification, {
               jsonrpc: "2.0",
-              method: "_x.ai/session/prompt_complete",
+              method: "_ext/session/prompt_complete",
               params: {
-                sessionId: "grok-session-1",
+                sessionId: "ext-session-1",
                 promptId: "prompt-1",
                 stopReason: "end_turn",
                 agentResult: null,
               },
             }),
-            encodeJsonl(XAiSessionsChangedNotification, {
+            encodeJsonl(ExtSessionsChangedNotification, {
               jsonrpc: "2.0",
-              method: "_x.ai/sessions/changed",
+              method: "_ext/sessions/changed",
               params: {
                 upserted: [
                   {
-                    sessionId: "grok-session-1",
+                    sessionId: "ext-session-1",
                     title: null,
                     cwd: process.cwd(),
                     isWorktree: false,
-                    modelId: "grok-composer-2.5-fast",
+                    modelId: "ext-model-fast",
                     yolo: false,
                     activity: "idle",
                     resident: true,
@@ -550,10 +550,10 @@ it.layer(NodeServices.layer)("effect-acp client", (it) => {
               result: {
                 stopReason: "end_turn",
                 _meta: {
-                  sessionId: "grok-session-1",
+                  sessionId: "ext-session-1",
                   requestId: "prompt-1",
                   promptId: "prompt-1",
-                  modelId: "grok-composer-2.5-fast",
+                  modelId: "ext-model-fast",
                 },
               },
             }),
@@ -564,10 +564,10 @@ it.layer(NodeServices.layer)("effect-acp client", (it) => {
         assert.deepEqual(yield* Fiber.join(promptFiber), {
           stopReason: "end_turn",
           _meta: {
-            sessionId: "grok-session-1",
+            sessionId: "ext-session-1",
             requestId: "prompt-1",
             promptId: "prompt-1",
-            modelId: "grok-composer-2.5-fast",
+            modelId: "ext-model-fast",
           },
         });
         yield* Scope.close(scope, Exit.void);

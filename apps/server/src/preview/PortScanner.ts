@@ -5,16 +5,16 @@
  * stable line-prefixed field format; this is the only `lsof` flag set we rely
  * on).
  *
- * Windows / lsof missing: checks a curated list of common dev ports through
- * the shared Net service.
+ * lsof missing: checks a curated list of common dev ports through the shared
+ * Net service.
  *
  * Polling is reference-counted via scoped `retain`. A single layer-scoped fiber
  * polls forever, but each tick is a no-op when the retain count is zero.
  */
-import { ThreadId, type DiscoveredLocalServer } from "@t3tools/contracts";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import * as Net from "@t3tools/shared/Net";
-import { LSOF_LOCAL_HOST_TOKENS } from "@t3tools/shared/preview";
+import { ThreadId, type DiscoveredLocalServer } from "@piku/contracts";
+import { HostProcessPlatform } from "@piku/shared/hostProcess";
+import * as Net from "@piku/shared/Net";
+import { LSOF_LOCAL_HOST_TOKENS } from "@piku/shared/preview";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
@@ -44,7 +44,7 @@ export class PortDiscovery extends Context.Service<
       readonly terminalId: string;
     }) => Effect.Effect<void>;
   }
->()("t3/preview/PortScanner/PortDiscovery") {}
+>()("piku/preview/PortScanner/PortDiscovery") {}
 
 export const COMMON_DEV_PORTS: ReadonlyArray<number> = Object.freeze([
   3000, 3001, 3333, 4173, 4200, 4321, 5000, 5173, 5174, 5175, 5500, 8000, 8080, 8081, 8888, 9000,
@@ -52,7 +52,6 @@ export const COMMON_DEV_PORTS: ReadonlyArray<number> = Object.freeze([
 
 const POLL_INTERVAL = Duration.seconds(3);
 const LSOF_TIMEOUT_MS = 5_000;
-const WINDOWS_LISTENER_TIMEOUT_MS = 5_000;
 
 type Listener = (servers: ReadonlyArray<DiscoveredLocalServer>) => Effect.Effect<void>;
 
@@ -136,32 +135,6 @@ const parsePortFromLsofName = (name: string): number | null => {
   return port;
 };
 
-const parseWindowsListenerOutput = (
-  raw: string,
-  terminalByProcessId: ReadonlyMap<number, TerminalProcessOwner> = new Map(),
-): ReadonlyArray<DiscoveredLocalServer> => {
-  const seen = new Map<number, DiscoveredLocalServer>();
-  for (const line of raw.split(/\r?\n/g)) {
-    const [hostRaw, portRaw, pidRaw, processNameRaw] = line.trim().split("|", 4);
-    const host = hostRaw?.trim() ?? "";
-    if (!LSOF_LOCAL_HOST_TOKENS.has(host) && host !== "::") continue;
-    const port = Number(portRaw);
-    const pid = Number(pidRaw);
-    if (!Number.isInteger(port) || port <= 0 || port >= 65536) continue;
-    const normalizedPid = Number.isInteger(pid) && pid > 0 ? pid : null;
-    if (seen.has(port)) continue;
-    seen.set(port, {
-      host: "localhost",
-      port,
-      url: `http://localhost:${port}`,
-      processName: processNameRaw?.trim() || null,
-      pid: normalizedPid,
-      terminal: normalizedPid === null ? null : (terminalByProcessId.get(normalizedPid) ?? null),
-    });
-  }
-  return [...seen.values()].toSorted((left, right) => left.port - right.port);
-};
-
 const serversEqual = (
   left: ReadonlyArray<DiscoveredLocalServer>,
   right: ReadonlyArray<DiscoveredLocalServer>,
@@ -221,13 +194,12 @@ export const make = Effect.gen(function* PortDiscoveryMake() {
       }));
   });
 
-  const recoverProcessProbeFailure =
-    (probe: "lsof" | "windows-listeners") => (error: ProcessRunner.ProcessRunError) =>
-      Effect.logDebug("preview port process probe failed; falling back to common-port probes", {
-        cause: error,
-        probe,
-        platform: hostPlatform,
-      }).pipe(Effect.as(null));
+  const recoverProcessProbeFailure = (probe: "lsof") => (error: ProcessRunner.ProcessRunError) =>
+    Effect.logDebug("preview port process probe failed; falling back to common-port probes", {
+      cause: error,
+      probe,
+      platform: hostPlatform,
+    }).pipe(Effect.as(null));
 
   const scanOnce = Effect.fn("PortDiscovery.scan")(function* () {
     const state = yield* Ref.get(stateRef);
@@ -236,31 +208,6 @@ export const make = Effect.gen(function* PortDiscoveryMake() {
       for (const processId of registration.processIds) {
         terminalByProcessId.set(processId, registration.owner);
       }
-    }
-    if (hostPlatform === "win32") {
-      const recoverWindowsProbeFailure = recoverProcessProbeFailure("windows-listeners");
-      const command =
-        'Get-NetTCPConnection -State Listen -ErrorAction Stop | ForEach-Object { $processName = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName; Write-Output "$($_.LocalAddress)|$($_.LocalPort)|$($_.OwningProcess)|$processName" }';
-      const listeners = yield* processRunner
-        .run({
-          command: "powershell.exe",
-          args: ["-NoProfile", "-NonInteractive", "-Command", command],
-          timeout: Duration.millis(WINDOWS_LISTENER_TIMEOUT_MS),
-          maxOutputBytes: 1024 * 1024,
-          outputMode: "truncate",
-        })
-        .pipe(
-          Effect.map((result) => parseWindowsListenerOutput(result.stdout, terminalByProcessId)),
-          Effect.catchTags({
-            ProcessSpawnError: recoverWindowsProbeFailure,
-            ProcessStdinError: recoverWindowsProbeFailure,
-            ProcessOutputLimitError: recoverWindowsProbeFailure,
-            ProcessReadError: recoverWindowsProbeFailure,
-            ProcessTimeoutError: recoverWindowsProbeFailure,
-          }),
-        );
-      if (listeners !== null) return listeners;
-      return yield* probeCommonPorts();
     }
     const recoverLsofProbeFailure = recoverProcessProbeFailure("lsof");
     const lsofResult = yield* processRunner

@@ -2,7 +2,7 @@ import * as Clock from "effect/Clock";
 import type {
   RelayClientInstallProgressEvent,
   RelayClientInstallProgressStage,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Crypto from "effect/Crypto";
@@ -20,7 +20,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 import { HostProcessArchitecture, HostProcessPlatform } from "./hostProcess.ts";
 
 export const CLOUDFLARED_VERSION = "2026.5.2";
-export const CLOUDFLARED_PATH_ENV_NAME = "T3CODE_CLOUDFLARED_PATH";
+export const CLOUDFLARED_PATH_ENV_NAME = "PIKU_CLOUDFLARED_PATH";
 
 export type RelayClientExecutableSource = "override" | "managed" | "path";
 
@@ -91,11 +91,6 @@ const CLOUDFLARED_RELEASE_ASSETS: Readonly<
     sha256: "5286698547f03df745adb2355f04c12dde52ef425491e81f433642d695521886",
     archive: "binary",
   },
-  "win32-x64": {
-    url: "https://github.com/cloudflare/cloudflared/releases/download/2026.5.2/cloudflared-windows-amd64.exe",
-    sha256: "20b9638f685333d623798e733effbad2487093f15ba592f6c7752360ff3b7ab7",
-    archive: "binary",
-  },
 };
 
 const INSTALL_LOCK_RETRY_COUNT = 100;
@@ -132,12 +127,10 @@ export interface RelayClientShape {
 }
 
 export class RelayClient extends Context.Service<RelayClient, RelayClientShape>()(
-  "@t3tools/shared/relayClient",
+  "@piku/shared/relayClient",
 ) {}
 
-function executableFileName(platform: NodeJS.Platform): string {
-  return platform === "win32" ? "cloudflared.exe" : "cloudflared";
-}
+const CLOUDFLARED_EXECUTABLE_NAME = "cloudflared";
 
 function resolveReleaseAsset(
   platform: NodeJS.Platform,
@@ -196,7 +189,7 @@ export const makeCloudflaredRelayClient = Effect.fn("cloudflared.make")(function
     "cloudflared",
     CLOUDFLARED_VERSION,
     `${platform}-${arch}`,
-    executableFileName(platform),
+    CLOUDFLARED_EXECUTABLE_NAME,
   );
 
   const isExecutableFile = Effect.fn("cloudflared.isExecutableFile")(function* (
@@ -204,18 +197,18 @@ export const makeCloudflaredRelayClient = Effect.fn("cloudflared.make")(function
   ) {
     const info = yield* fileSystem.stat(executablePath).pipe(Effect.option);
     if (Option.isNone(info) || info.value.type !== "File") return false;
-    return platform === "win32" || (info.value.mode & 0o111) !== 0;
+    return (info.value.mode & 0o111) !== 0;
   });
 
   const resolvePathExecutable = Effect.gen(function* () {
     const config = yield* loadCloudflaredConfig;
     const pathValue = Option.getOrUndefined(config.path);
     if (!pathValue) return null;
-    const delimiter = platform === "win32" ? ";" : ":";
+    const delimiter = ":";
     for (const directory of pathValue.split(delimiter)) {
       const trimmed = directory.trim().replace(/^"|"$/gu, "");
       if (trimmed.length === 0) continue;
-      const candidate = path.join(trimmed, executableFileName(platform));
+      const candidate = path.join(trimmed, CLOUDFLARED_EXECUTABLE_NAME);
       if (yield* isExecutableFile(candidate)) return candidate;
     }
     return null;
@@ -368,7 +361,7 @@ export const makeCloudflaredRelayClient = Effect.fn("cloudflared.make")(function
     if (!releaseAsset) {
       return yield* new RelayClientInstallError({
         reason: "unsupported_platform",
-        message: `T3 Code does not provide a managed relay client binary for ${platform}-${arch}.`,
+        message: `Piku Code does not provide a managed relay client binary for ${platform}-${arch}.`,
       });
     }
 
@@ -401,7 +394,7 @@ export const makeCloudflaredRelayClient = Effect.fn("cloudflared.make")(function
       });
       const archivePath = path.join(
         tempDirectory,
-        releaseAsset.archive === "tgz" ? "cloudflared.tgz" : executableFileName(platform),
+        releaseAsset.archive === "tgz" ? "cloudflared.tgz" : CLOUDFLARED_EXECUTABLE_NAME,
       );
       const download = yield* downloadAsset(releaseAsset, report);
       yield* report("installing");
@@ -409,17 +402,15 @@ export const makeCloudflaredRelayClient = Effect.fn("cloudflared.make")(function
         .writeFile(archivePath, download)
         .pipe(wrapInstallFailure("write_failed", "Could not write the relay client download."));
 
-      const executablePath = path.join(tempDirectory, executableFileName(platform));
+      const executablePath = path.join(tempDirectory, CLOUDFLARED_EXECUTABLE_NAME);
       if (releaseAsset.archive === "tgz") {
         yield* runCommand("tar", ["-xzf", archivePath, "-C", tempDirectory]).pipe(
           wrapInstallFailure("write_failed", "Could not extract the relay client."),
         );
       }
-      if (platform !== "win32") {
-        yield* fileSystem
-          .chmod(executablePath, 0o755)
-          .pipe(wrapInstallFailure("write_failed", "Could not make the relay client executable."));
-      }
+      yield* fileSystem
+        .chmod(executablePath, 0o755)
+        .pipe(wrapInstallFailure("write_failed", "Could not make the relay client executable."));
       yield* report("validating");
       yield* runCommand(executablePath, ["--version"]).pipe(
         wrapInstallFailure("validation_failed", "The downloaded relay client binary did not run."),

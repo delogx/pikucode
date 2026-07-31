@@ -9,8 +9,6 @@ import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
 import {
   collectUint8StreamText,
   type CollectedUint8StreamText,
@@ -65,9 +63,6 @@ export class ProcessSpawnError extends Schema.TaggedErrorClass<ProcessSpawnError
   "ProcessSpawnError",
   {
     ...ProcessInvocationFields,
-    resolvedCommand: Schema.optional(Schema.String),
-    resolvedArgumentCount: Schema.optional(Schema.Number),
-    shell: Schema.optional(Schema.Boolean),
     cause: Schema.Defect(),
   },
 ) {
@@ -142,32 +137,10 @@ export class ProcessRunner extends Context.Service<
   {
     readonly run: (input: ProcessRunInput) => Effect.Effect<ProcessRunOutput, ProcessRunError>;
   }
->()("t3/processRunner") {}
+>()("piku/processRunner") {}
 
 const DEFAULT_TIMEOUT = "60 seconds";
 const DEFAULT_MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
-
-const WINDOWS_COMMAND_NOT_FOUND_PATTERNS = [
-  /is not recognized as an internal or external command/i,
-  /n.o . reconhecido como um comando interno/i,
-  /non . riconosciuto come comando interno o esterno/i,
-  /n.est pas reconnu en tant que commande interne/i,
-  /no se reconoce como un comando interno o externo/i,
-  /wird nicht als interner oder externer befehl/i,
-] as const;
-
-function hasWindowsCommandNotFoundMessage(output: string): boolean {
-  return WINDOWS_COMMAND_NOT_FOUND_PATTERNS.some((pattern) => pattern.test(output));
-}
-
-export const isWindowsCommandNotFound = Effect.fn("processRunner.isWindowsCommandNotFound")(
-  function* (code: number | null, stderr: string) {
-    const platform = yield* HostProcessPlatform;
-    if (platform !== "win32") return false;
-    if (code === 9009) return true;
-    return hasWindowsCommandNotFoundMessage(stderr);
-  },
-);
 
 const collectText = Effect.fn("processRunner.collectText")(function* (input: {
   readonly command: string;
@@ -291,15 +264,10 @@ const runProcessCore = Effect.fn("processRunner.runProcessCore")(function* (
   const outputMode = input.outputMode ?? "error";
   const truncatedMarker = input.truncatedMarker ?? "";
   const extendEnv = input.env !== undefined;
-  const spawnCommand = yield* resolveSpawnCommand(
-    input.command,
-    input.args,
-    input.env === undefined ? {} : { env: input.env, extendEnv },
-  );
 
   const child = yield* spawner
     .spawn(
-      ChildProcess.make(spawnCommand.command, spawnCommand.args, {
+      ChildProcess.make(input.command, input.args, {
         ...((input.spawnCwd ?? input.cwd) ? { cwd: input.spawnCwd ?? input.cwd } : {}),
         ...(input.env !== undefined
           ? {
@@ -307,7 +275,6 @@ const runProcessCore = Effect.fn("processRunner.runProcessCore")(function* (
               extendEnv,
             }
           : {}),
-        shell: spawnCommand.shell,
       }),
     )
     .pipe(
@@ -318,9 +285,6 @@ const runProcessCore = Effect.fn("processRunner.runProcessCore")(function* (
             argumentCount: input.args.length,
             cwd: input.cwd,
             spawnCwd: input.spawnCwd,
-            resolvedCommand: spawnCommand.command,
-            resolvedArgumentCount: spawnCommand.args.length,
-            shell: spawnCommand.shell,
             cause,
           }),
       ),

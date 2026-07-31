@@ -16,13 +16,12 @@ import {
   ExternalLauncherUnsupportedEditorError,
   type EditorId,
   type LaunchEditorInput,
-} from "@t3tools/contracts";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { isCommandAvailable, resolveSpawnCommand } from "@t3tools/shared/shell";
+} from "@piku/contracts";
+import { HostProcessPlatform } from "@piku/shared/hostProcess";
+import { isCommandAvailable } from "@piku/shared/shell";
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as Encoding from "effect/Encoding";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -42,7 +41,7 @@ export {
   ExternalLauncherUnknownEditorError,
   ExternalLauncherUnsupportedEditorError,
   isExternalLauncherError,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 export type { LaunchEditorInput };
 interface EditorLaunch {
   readonly editor: EditorId;
@@ -64,14 +63,6 @@ interface TargetPathAndPosition {
 }
 
 const TARGET_WITH_POSITION_PATTERN = /^(.*?):(\d+)(?::(\d+))?$/;
-const POWERSHELL_ARGUMENTS_PREFIX = [
-  "-NoProfile",
-  "-NonInteractive",
-  "-ExecutionPolicy",
-  "Bypass",
-  "-EncodedCommand",
-] as const;
-
 const DETACHED_IGNORE_STDIO_OPTIONS = {
   detached: true,
   stdin: "ignore",
@@ -89,24 +80,10 @@ const compactEnv = (input: Record<string, Option.Option<string>>): NodeJS.Proces
     ),
   );
 
-const BrowserLaunchEnvConfig = Config.all({
-  SYSTEMROOT: Config.string("SYSTEMROOT").pipe(Config.option),
-  windir: Config.string("windir").pipe(Config.option),
-  WSL_DISTRO_NAME: Config.string("WSL_DISTRO_NAME").pipe(Config.option),
-  WSL_INTEROP: Config.string("WSL_INTEROP").pipe(Config.option),
-  SSH_CONNECTION: Config.string("SSH_CONNECTION").pipe(Config.option),
-  SSH_TTY: Config.string("SSH_TTY").pipe(Config.option),
-  container: Config.string("container").pipe(Config.option),
-}).pipe(Config.map(compactEnv));
-
 const CommandLookupEnvConfig = Config.all({
   PATH: Config.string("PATH").pipe(Config.option),
-  Path: Config.string("Path").pipe(Config.option),
-  path: Config.string("path").pipe(Config.option),
-  PATHEXT: Config.string("PATHEXT").pipe(Config.option),
 }).pipe(Config.map(compactEnv));
 
-const readBrowserLaunchEnv = BrowserLaunchEnvConfig.pipe(Effect.orElseSucceed(() => ({})));
 const readCommandLookupEnv = CommandLookupEnvConfig.pipe(Effect.orElseSucceed(() => ({})));
 
 function parseTargetPathAndPosition(target: string): Option.Option<TargetPathAndPosition> {
@@ -169,92 +146,13 @@ const resolveAvailableCommand = Effect.fn("externalLauncher.resolveAvailableComm
   return Option.none();
 });
 
-function encodeUtf16LeBase64(input: string): string {
-  const bytes = new Uint8Array(input.length * 2);
-  for (let index = 0; index < input.length; index += 1) {
-    const code = input.charCodeAt(index);
-    bytes[index * 2] = code & 0xff;
-    bytes[index * 2 + 1] = code >>> 8;
-  }
-  return Encoding.encodeBase64(bytes);
-}
-
-function escapePowerShellStringLiteral(input: string): string {
-  return `'${input.replaceAll("'", "''")}'`;
-}
-
-function resolvePowerShellPath(env: NodeJS.ProcessEnv = {}): string {
-  return `${env.SYSTEMROOT || env.windir || String.raw`C:\Windows`}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`;
-}
-
-function resolveWslPowerShellPath(): string {
-  return "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe";
-}
-
-function shouldUseWindowsBrowserFromWsl(
-  platform: NodeJS.Platform,
-  env: NodeJS.ProcessEnv = {},
-): boolean {
-  return (
-    platform === "linux" &&
-    (env.WSL_DISTRO_NAME !== undefined || env.WSL_INTEROP !== undefined) &&
-    env.SSH_CONNECTION === undefined &&
-    env.SSH_TTY === undefined &&
-    env.container === undefined
-  );
-}
-
-function resolveWindowsBrowserLaunch(target: string, command: string): ProcessLaunch {
-  const encodedCommand = encodeUtf16LeBase64(
-    `$ProgressPreference = 'SilentlyContinue'; Start ${escapePowerShellStringLiteral(target)}`,
-  );
-  return {
-    command,
-    args: [...POWERSHELL_ARGUMENTS_PREFIX, encodedCommand],
-    options: {
-      detached: true,
-      shell: false,
-      stdin: "ignore",
-      stdout: "ignore",
-      stderr: "ignore",
-    },
-  };
-}
-
 function fileManagerCommandForPlatform(platform: NodeJS.Platform): string {
-  switch (platform) {
-    case "darwin":
-      return "open";
-    case "win32":
-      return "explorer";
-    default:
-      return "xdg-open";
-  }
+  return platform === "darwin" ? "open" : "xdg-open";
 }
 
-function buildBrowserLaunch(
-  target: string,
-  platform: NodeJS.Platform,
-  env: NodeJS.ProcessEnv = {},
-): ProcessLaunch {
-  if (platform === "darwin") {
-    return {
-      command: "open",
-      args: [target],
-      options: DETACHED_IGNORE_STDIO_OPTIONS,
-    };
-  }
-
-  if (platform === "win32") {
-    return resolveWindowsBrowserLaunch(target, resolvePowerShellPath(env));
-  }
-
-  if (shouldUseWindowsBrowserFromWsl(platform, env)) {
-    return resolveWindowsBrowserLaunch(target, resolveWslPowerShellPath());
-  }
-
+function buildBrowserLaunch(target: string, platform: NodeJS.Platform): ProcessLaunch {
   return {
-    command: "xdg-open",
+    command: platform === "darwin" ? "open" : "xdg-open",
     args: [target],
     options: DETACHED_IGNORE_STDIO_OPTIONS,
   };
@@ -288,8 +186,7 @@ const resolveBrowserLaunch = Effect.fn("externalLauncher.resolveBrowserLaunch")(
   target: string,
 ) {
   const platform = yield* HostProcessPlatform;
-  const env = yield* readBrowserLaunchEnv;
-  return buildBrowserLaunch(target, platform, env);
+  return buildBrowserLaunch(target, platform);
 });
 
 const resolveAvailableEditors = Effect.fn("externalLauncher.resolveAvailableEditors")(function* () {
@@ -314,7 +211,7 @@ export class ExternalLauncher extends Context.Service<
      */
     readonly launchEditor: (input: LaunchEditorInput) => Effect.Effect<void, ExternalLauncherError>;
   }
->()("t3/process/externalLauncher") {}
+>()("piku/process/externalLauncher") {}
 
 // ==============================
 // Implementations
@@ -406,25 +303,18 @@ const launchEditorProcess = Effect.fn("externalLauncher.launchEditorProcess")(fu
     });
   }
 
-  const spawnCommand = yield* resolveSpawnCommand(launch.command, launch.args, { env });
   yield* launchAndUnref(
     {
-      command: spawnCommand.command,
-      args: spawnCommand.args,
-      options: {
-        detached: true,
-        shell: spawnCommand.shell,
-        stdin: "ignore",
-        stdout: "ignore",
-        stderr: "ignore",
-      },
+      command: launch.command,
+      args: launch.args,
+      options: DETACHED_IGNORE_STDIO_OPTIONS,
     },
     (cause) =>
       new ExternalLauncherEditorSpawnError({
         editor: launch.editor,
         target: launch.target,
-        command: spawnCommand.command,
-        args: spawnCommand.args,
+        command: launch.command,
+        args: launch.args,
         cause,
       }),
   );

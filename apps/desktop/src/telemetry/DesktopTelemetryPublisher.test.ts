@@ -1,4 +1,4 @@
-import { DesktopHostTelemetryMessage } from "@t3tools/contracts";
+import { DesktopHostTelemetryMessage } from "@piku/contracts";
 import { assert, describe, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
@@ -25,7 +25,7 @@ function makeElectronAppLayer(
 ) {
   return Layer.succeed(ElectronApp.ElectronApp, {
     metadata: Effect.die("unexpected metadata read"),
-    name: Effect.succeed("T3 Code"),
+    name: Effect.succeed("Piku Code"),
     whenReady: Effect.void,
     quit: Effect.void,
     exit: () => Effect.void,
@@ -33,7 +33,6 @@ function makeElectronAppLayer(
     setPath: () => Effect.void,
     setName: () => Effect.void,
     setAboutPanelOptions: () => Effect.void,
-    setAppUserModelId: () => Effect.void,
     getAppMetrics: Effect.sync(() => {
       onMetricsRead();
       return metrics;

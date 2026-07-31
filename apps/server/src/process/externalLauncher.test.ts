@@ -9,8 +9,7 @@ import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { SpawnExecutableResolution } from "@t3tools/shared/shell";
+import { HostProcessPlatform } from "@piku/shared/hostProcess";
 import * as ExternalLauncher from "./externalLauncher.ts";
 
 function makeMockDetachedHandle(onUnref: () => void = () => undefined) {
@@ -32,10 +31,17 @@ function makeMockDetachedHandle(onUnref: () => void = () => undefined) {
   });
 }
 
+const writeExecutable = Effect.fn("externalLauncher.test.writeExecutable")(function* (
+  filePath: string,
+) {
+  const fileSystem = yield* FileSystem.FileSystem;
+  yield* fileSystem.writeFileString(filePath, "#!/bin/sh\nexit 0\n");
+  yield* fileSystem.chmod(filePath, 0o755);
+});
+
 const testLayer = (input: {
   readonly platform: NodeJS.Platform;
   readonly env?: Record<string, string>;
-  readonly resolveExecutable?: (command: string) => string | undefined;
   readonly onSpawn?: (command: ChildProcess.StandardCommand) => void;
   readonly onUnref?: () => void;
 }) => {
@@ -56,10 +62,6 @@ const testLayer = (input: {
   return Layer.mergeAll(
     ExternalLauncher.layer.pipe(Layer.provide(Layer.merge(NodeServices.layer, spawnerLayer))),
     Layer.succeed(HostProcessPlatform, input.platform),
-    Layer.succeed(
-      SpawnExecutableResolution,
-      (command) => input.resolveExecutable?.(command) ?? command,
-    ),
     ConfigProvider.layer(ConfigProvider.fromEnv({ env: input.env ?? {} })),
   );
 };
@@ -96,23 +98,21 @@ it.effect("launches an installed editor with platform-safe arguments", () =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const binDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-editors-" });
-    yield* fileSystem.writeFileString(path.join(binDir, "code.CMD"), "@echo off\r\n");
+    const binDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "piku-editors-" });
+    yield* writeExecutable(path.join(binDir, "code"));
 
     let spawned: ChildProcess.StandardCommand | undefined;
     yield* Effect.gen(function* () {
       const launcher = yield* ExternalLauncher.ExternalLauncher;
       yield* launcher.launchEditor({
         editor: "vscode",
-        cwd: "C:\\workspace with spaces\\src\\index.ts:12:4",
+        cwd: "/workspace with spaces/src/index.ts:12:4",
       });
     }).pipe(
       Effect.provide(
         testLayer({
-          platform: "win32",
-          env: { PATH: binDir, PATHEXT: ".COM;.EXE;.BAT;.CMD" },
-          resolveExecutable: (command) =>
-            command === "code" ? "C:\\Program Files\\Microsoft VS Code\\bin\\code.CMD" : command,
+          platform: "linux",
+          env: { PATH: binDir },
           onSpawn: (command) => {
             spawned = command;
           },
@@ -121,12 +121,9 @@ it.effect("launches an installed editor with platform-safe arguments", () =>
     );
 
     assert.ok(spawned);
-    assert.equal(spawned.command, '^"C:\\Program^ Files\\Microsoft^ VS^ Code\\bin\\code.CMD^"');
-    assert.deepEqual(spawned.args, [
-      '^"--goto^"',
-      '^"C:\\workspace^ with^ spaces\\src\\index.ts:12:4^"',
-    ]);
-    assert.equal(spawned.options.shell, true);
+    assert.equal(spawned.command, "code");
+    assert.deepEqual(spawned.args, ["--goto", "/workspace with spaces/src/index.ts:12:4"]);
+    assert.equal(spawned.options.detached, true);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
@@ -134,9 +131,9 @@ it.effect("discovers editors through the service API", () =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const binDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-editors-" });
-    yield* fileSystem.writeFileString(path.join(binDir, "code.CMD"), "@echo off\r\n");
-    yield* fileSystem.writeFileString(path.join(binDir, "explorer.CMD"), "@echo off\r\n");
+    const binDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "piku-editors-" });
+    yield* writeExecutable(path.join(binDir, "code"));
+    yield* writeExecutable(path.join(binDir, "xdg-open"));
 
     const editors = yield* Effect.gen(function* () {
       const launcher = yield* ExternalLauncher.ExternalLauncher;
@@ -144,8 +141,8 @@ it.effect("discovers editors through the service API", () =>
     }).pipe(
       Effect.provide(
         testLayer({
-          platform: "win32",
-          env: { PATH: binDir, PATHEXT: ".COM;.EXE;.BAT;.CMD" },
+          platform: "linux",
+          env: { PATH: binDir },
         }),
       ),
     );

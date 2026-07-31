@@ -1,11 +1,10 @@
-import { HostProcessEnvironment, HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import { HostProcessEnvironment, HostProcessPlatform } from "@piku/shared/hostProcess";
 import {
   listLoginShellCandidates,
   mergePathEntries,
   readPathFromLoginShell,
   readPathFromLaunchctl,
-  resolveWindowsEnvironment,
-} from "@t3tools/shared/shell";
+} from "@piku/shared/shell";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -30,7 +29,7 @@ function hydratePosixPath(env: NodeJS.ProcessEnv, platform: NodeJS.Platform): vo
   }
 
   const launchctlPath = platform === "darwin" && !shellPath ? readPathFromLaunchctl() : undefined;
-  const mergedPath = mergePathEntries(shellPath ?? launchctlPath, env.PATH, platform);
+  const mergedPath = mergePathEntries(shellPath ?? launchctlPath, env.PATH);
   if (mergedPath) {
     env.PATH = mergedPath;
   }
@@ -56,23 +55,6 @@ export const fixPath = Effect.fn("fixPath")(function* (): Effect.fn.Return<
   const platform = yield* HostProcessPlatform;
   const env = yield* HostProcessEnvironment;
 
-  if (platform === "win32") {
-    const repairedEnvironment = yield* resolveWindowsEnvironment(env).pipe(
-      Effect.catchDefect((defect) =>
-        Effect.sync(() => {
-          logPathHydrationWarning("Failed to hydrate PATH from the user environment.", defect);
-          return {} as Partial<NodeJS.ProcessEnv>;
-        }),
-      ),
-    );
-    for (const [key, value] of Object.entries(repairedEnvironment)) {
-      if (value !== undefined) {
-        env[key] = value;
-      }
-    }
-    return;
-  }
-
   if (platform !== "darwin" && platform !== "linux") return;
 
   yield* Effect.sync(() => hydratePosixHome(env)).pipe(
@@ -96,7 +78,7 @@ export const expandHomePath = Effect.fn(function* (input: string) {
   if (input === "~") {
     return NodeOS.homedir();
   }
-  if (input.startsWith("~/") || input.startsWith("~\\")) {
+  if (input.startsWith("~/")) {
     return join(NodeOS.homedir(), input.slice(2));
   }
   return input;
@@ -105,7 +87,7 @@ export const expandHomePath = Effect.fn(function* (input: string) {
 export const resolveBaseDir = Effect.fn(function* (raw: string | undefined) {
   const { join, resolve } = yield* Path.Path;
   if (!raw || raw.trim().length === 0) {
-    return join(NodeOS.homedir(), ".t3");
+    return join(NodeOS.homedir(), ".pikucode");
   }
   return resolve(yield* expandHomePath(raw.trim()));
 });

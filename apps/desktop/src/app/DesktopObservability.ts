@@ -1,6 +1,6 @@
-import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@t3tools/contracts";
-import { makeLocalFileTracer, makeTraceSink } from "@t3tools/shared/observability";
-import { parsePersistedServerObservabilitySettings } from "@t3tools/shared/serverSettings";
+import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@piku/contracts";
+import { makeLocalFileTracer, makeTraceSink } from "@piku/shared/observability";
+import { parsePersistedServerObservabilitySettings } from "@piku/shared/serverSettings";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -58,7 +58,7 @@ export class DesktopBackendOutputLogFactory extends Context.Service<
   {
     readonly forInstance: (id: string) => Effect.Effect<DesktopBackendOutputLogShape>;
   }
->()("@t3tools/desktop/app/DesktopObservability/DesktopBackendOutputLogFactory") {}
+>()("@piku/desktop/app/DesktopObservability/DesktopBackendOutputLogFactory") {}
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -515,8 +515,8 @@ const backendOutputLogFactoryLayer = Layer.effect(
     const factoryScope = yield* Scope.Scope;
     // Per-file-path cache of the IO sink only. The per-call shape
     // wraps the sink with the caller's instance id so a cache hit on
-    // a path collision (e.g. "wsl:default" and "wsl_default" both
-    // resolve to server-child-wsl_default.log) doesn't attribute the
+    // a path collision (e.g. "a:b" and "a_b" both resolve to
+    // server-child-a_b.log) doesn't attribute the
     // second caller's writes to the first caller's id. Each sink pins
     // itself to the factory's scope so all log resources tear down
     // together at app exit. Mutex serializes concurrent first-time

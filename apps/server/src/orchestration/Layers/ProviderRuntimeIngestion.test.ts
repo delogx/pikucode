@@ -9,7 +9,7 @@ import {
   ProviderRuntimeEvent,
   ProviderSession,
   ProviderInstanceId,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import {
   ApprovalRequestId,
   CommandId,
@@ -21,7 +21,7 @@ import {
   type ServerSettings,
   ThreadId,
   TurnId,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -219,7 +219,7 @@ describe("ProviderRuntimeIngestion", () => {
   });
 
   async function createHarness(options?: { serverSettings?: Partial<ServerSettings> }) {
-    const workspaceRoot = makeTempDir("t3-provider-project-");
+    const workspaceRoot = makeTempDir("piku-provider-project-");
     NodeFS.mkdirSync(NodePath.join(workspaceRoot, ".git"));
     const provider = createProviderServiceHarness();
     const orchestrationLayer = OrchestrationEngineLive.pipe(
@@ -985,7 +985,7 @@ describe("ProviderRuntimeIngestion", () => {
     harness.emit({
       type: "item.completed",
       eventId: asEventId("evt-tool-completed-with-data"),
-      provider: ProviderDriverKind.make("cursor"),
+      provider: ProviderDriverKind.make("claudeAgent"),
       createdAt: now,
       threadId: asThreadId("thread-1"),
       turnId: asTurnId("turn-tool-completed"),
@@ -1041,7 +1041,7 @@ describe("ProviderRuntimeIngestion", () => {
     harness.emit({
       type: "item.completed",
       eventId: asEventId("evt-command-completed"),
-      provider: ProviderDriverKind.make("cursor"),
+      provider: ProviderDriverKind.make("claudeAgent"),
       createdAt: now,
       threadId: asThreadId("thread-1"),
       turnId: asTurnId("turn-command-completed"),
@@ -1083,7 +1083,7 @@ describe("ProviderRuntimeIngestion", () => {
     harness.emit({
       type: "item.completed",
       eventId: asEventId("evt-read-path-completed"),
-      provider: ProviderDriverKind.make("cursor"),
+      provider: ProviderDriverKind.make("claudeAgent"),
       createdAt: now,
       threadId: asThreadId("thread-1"),
       turnId: asTurnId("turn-read-path"),
@@ -1489,7 +1489,7 @@ describe("ProviderRuntimeIngestion", () => {
 
   it("accepts a conflicting turn.started for a pending turn start when the provider expects that turn", async () => {
     // Steering a running turn: the server requests a new turn while the old
-    // one is still active, and providers like opencode open the new turn
+    // one is still active, and some providers open the new turn
     // without ever completing the superseded one. The new turn.started must
     // replace the active turn instead of being rejected as stale.
     const harness = await createHarness();

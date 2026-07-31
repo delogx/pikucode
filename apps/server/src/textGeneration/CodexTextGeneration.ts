@@ -7,15 +7,14 @@ import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
-import { type CodexSettings, type ModelSelection } from "@t3tools/contracts";
-import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@t3tools/shared/git";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
+import { type CodexSettings, type ModelSelection } from "@piku/contracts";
+import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@piku/shared/git";
 
 import { resolveAttachmentPath } from "../attachmentStore.ts";
 import * as ServerConfig from "../config.ts";
 import { expandHomePath } from "../pathExpansion.ts";
 import { codexExecLaunchArgs, resolveCodexLaunchArgs } from "../provider/Layers/codexLaunchArgs.ts";
-import { TextGenerationError } from "@t3tools/contracts";
+import { TextGenerationError } from "@piku/contracts";
 import * as TextGeneration from "./TextGeneration.ts";
 import {
   buildBranchNamePrompt,
@@ -30,7 +29,7 @@ import {
   sanitizeThreadTitle,
   toJsonSchemaObject,
 } from "./TextGenerationUtils.ts";
-import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
+import { getModelSelectionStringOptionValue } from "@piku/shared/model";
 import { getCodexServiceTierOptionValue } from "../codexModelOptions.ts";
 
 const CODEX_GIT_TEXT_GENERATION_REASONING_EFFORT = "low";
@@ -76,7 +75,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
   ): Effect.Effect<string, TextGenerationError, Scope.Scope> =>
     fileSystem
       .makeTempFileScoped({
-        prefix: `t3code-${prefix}-${process.pid}-`,
+        prefix: `pikucode-${prefix}-${process.pid}-`,
       })
       .pipe(
         Effect.tap((filePath) => fileSystem.writeFileString(filePath, content)),
@@ -180,7 +179,7 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
         getModelSelectionStringOptionValue(modelSelection, "reasoningEffort") ??
         CODEX_GIT_TEXT_GENERATION_REASONING_EFFORT;
       const serviceTier = getCodexServiceTierOptionValue(modelSelection);
-      const spawnCommand = yield* resolveSpawnCommand(
+      const command = ChildProcess.make(
         codexConfig.binaryPath || "codex",
         [
           "exec",
@@ -201,19 +200,17 @@ export const makeCodexTextGeneration = Effect.fn("makeCodexTextGeneration")(func
           ...imagePaths.flatMap((imagePath) => ["--image", imagePath]),
           "-",
         ],
-        { env: resolvedEnvironment },
+        {
+          env: {
+            ...resolvedEnvironment,
+            ...(codexConfig.homePath ? { CODEX_HOME: expandHomePath(codexConfig.homePath) } : {}),
+          },
+          cwd,
+          stdin: {
+            stream: Stream.encodeText(Stream.make(prompt)),
+          },
+        },
       );
-      const command = ChildProcess.make(spawnCommand.command, spawnCommand.args, {
-        env: {
-          ...resolvedEnvironment,
-          ...(codexConfig.homePath ? { CODEX_HOME: expandHomePath(codexConfig.homePath) } : {}),
-        },
-        cwd,
-        shell: spawnCommand.shell,
-        stdin: {
-          stream: Stream.encodeText(Stream.make(prompt)),
-        },
-      });
 
       const child = yield* commandSpawner
         .spawn(command)

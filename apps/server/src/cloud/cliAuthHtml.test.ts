@@ -9,7 +9,7 @@ it("renders the branded loopback authorization completion page", () => {
   const html = renderLoopbackAuthorizationCompleteHtml();
 
   expect(resolveLoopbackAuthorizationStage()).toBe("dev");
-  expect(html).toContain("T3 Code (Dev)");
+  expect(html).toContain("Piku Code (Dev)");
   expect(html).toContain('class="stage stage-dev"');
   expect(html).not.toContain("Secure terminal handoff");
   expect(html).toContain("You're connected");
@@ -19,13 +19,13 @@ it("renders the branded loopback authorization completion page", () => {
   expect(html).not.toContain('class="status"');
 });
 
-it("renders the matching header treatment for each release channel", () => {
+it("renders the matching header treatment for the nightly channel", () => {
   const nightly = renderLoopbackAuthorizationCompleteHtml("nightly");
-  const latest = renderLoopbackAuthorizationCompleteHtml("latest");
 
-  expect(nightly).toContain("T3 Code (Nightly)");
+  expect(nightly).toContain('<p class="brand">Piku Code (Nightly)</p>');
   expect(nightly).toContain('class="stage stage-nightly"');
-  expect(latest).toContain('<p class="brand">T3 Code</p>');
-  expect(latest).not.toContain("(Latest)");
-  expect(latest).toContain('class="stage stage-latest"');
+  expect(nightly).toContain('data-stage="nightly"');
+  // Every rendered stage class must have styling backing it.
+  expect(nightly).toContain(".stage-nightly {");
+  expect(nightly).not.toContain("stage-latest");
 });

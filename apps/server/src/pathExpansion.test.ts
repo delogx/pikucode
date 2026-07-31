@@ -24,10 +24,6 @@ describe("expandHomePath", () => {
     expect(expandHomePath("~/.codex-work")).toBe(NodePath.join(NodeOS.homedir(), ".codex-work"));
   });
 
-  it("expands a Windows-style ~\\ prefix", () => {
-    expect(expandHomePath("~\\.codex")).toBe(NodePath.join(NodeOS.homedir(), ".codex"));
-  });
-
   it("does not expand ~user paths", () => {
     expect(expandHomePath("~alice/foo")).toBe("~alice/foo");
   });

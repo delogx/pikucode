@@ -1,8 +1,8 @@
 # Server Update Architecture
 
-> For maintainers. Using T3 Code? See [docs/user](../user/).
+> For maintainers. Using Piku Code? See [docs/user](../user/).
 
-T3 Code can update a connected server to the exact version of the client that detected version
+Piku Code can update a connected server to the exact version of the client that detected version
 drift. This path exists primarily for remote environments, where the user may not have a terminal
 open on the server machine.
 
@@ -39,12 +39,12 @@ operation.
 
 The server resolves its capability once at startup and publishes it in the environment descriptor.
 
-| Advertised value  | Process shape                                                                                 | Client behavior                                                       |
-| ----------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `boot-service`    | Linux server running under the T3-managed systemd user service                                | Call the update RPC; the service unit is replaced and restarted.      |
-| `respawn`         | Published npm CLI running in the foreground on macOS or Linux                                 | Call the update RPC; the process hands off to a detached replacement. |
-| `desktop-managed` | Backend supervised by the desktop app                                                         | Tell the user to update the desktop app on the server machine.        |
-| absent            | Older server, development checkout, Windows foreground process, or an unrecognized supervisor | Offer the exact manual relaunch command.                              |
+| Advertised value  | Process shape                                                     | Client behavior                                                       |
+| ----------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `boot-service`    | Linux server running under the Piku-managed systemd user service  | Call the update RPC; the service unit is replaced and restarted.      |
+| `respawn`         | Published npm CLI running in the foreground on macOS or Linux     | Call the update RPC; the process hands off to a detached replacement. |
+| `desktop-managed` | Backend supervised by the desktop app                             | Tell the user to update the desktop app on the server machine.        |
+| absent            | Older server, development checkout, or an unrecognized supervisor | Offer the exact manual relaunch command.                              |
 
 Desktop ownership takes precedence over process-shape detection. A desktop-managed backend must
 never spawn a second CLI server beside the app-owned process. Likewise, a process launched by an
@@ -61,13 +61,13 @@ flowchart TD
     B -->|boot-service or respawn| E{Progress capability}
     E -->|present| F[server.updateServerWithProgress]
     E -->|missing| G[server.updateServer fallback]
-    F --> H[Install exact t3 version in pinned runtime]
+    F --> H[Install exact piku version in pinned runtime]
     G --> H
     H --> I[Run version preflight]
     I -->|bad code or version| J[Remove candidate runtime and keep current server]
     I -->|cannot run preflight| J2[Keep candidate and current server]
     I -->|passes| K{Handoff method}
-    K -->|boot-service| L[Rewrite and restart T3 systemd unit]
+    K -->|boot-service| L[Rewrite and restart Piku systemd unit]
     K -->|respawn| M[Start delayed replacement and exit current process]
     L --> N[Reconnect with fresh backoff]
     M --> N
@@ -79,7 +79,7 @@ payload accepts only an exact npm version, including an exact prerelease version
 `latest` and `nightly` are rejected. The unary `server.updateServer` method remains available so a
 new client can still repair skew with an older server.
 
-The update service permits one update at a time. It installs `t3@<version>` under
+The update service permits one update at a time. It installs `piku@<version>` under
 `<baseDir>/runtime/versions/<version>` and writes an install-complete sentinel only after npm exits
 successfully. Boot-service setup and self-update share the same process-wide installation lock, so
 they cannot mutate a pinned runtime concurrently.
@@ -96,18 +96,18 @@ directory is left in place.
 
 ## Host Service Lifecycle
 
-The systemd user service is a host lifecycle concern, not a T3 Connect resource. The standalone
-`t3 service install`, `uninstall`, `update`, and `status` commands own it. Install and update both
-reconcile the unit through `BootService`; running `npx t3@latest service update` therefore pins and
+The systemd user service is a host lifecycle concern, not a Piku Connect resource. The standalone
+`piku service install`, `uninstall`, `update`, and `status` commands own it. Install and update both
+reconcile the unit through `BootService`; running `npx piku@latest service update` therefore pins and
 activates the latest CLI release without requiring a connected client.
 
-The `t3 connect` onboarding flow may offer service installation, but it calls the same reconciliation
-operation as `t3 service install`. Connect logout only disables cloud access and clears its
+The `piku connect` onboarding flow may offer service installation, but it calls the same reconciliation
+operation as `piku service install`. Connect logout only disables cloud access and clears its
 authorization; it does not uninstall the host service.
 
 ## Process Handoff
 
-For `boot-service`, the server atomically rewrites the T3-managed user unit to point at the verified
+For `boot-service`, the server atomically rewrites the Piku-managed user unit to point at the verified
 runtime and reloads systemd. It acknowledges the handoff, then restarts the unit after the same
 short grace period used by foreground respawn. A rejected deferred restart restores the previous
 unit and is logged by the still-running process.
@@ -125,7 +125,7 @@ without adding a separate reconnect loop.
 
 ## Release Invariant
 
-The exact client version must exist as the `t3` npm package before a client carrying that version is
+The exact client version must exist as the `piku` npm package before a client carrying that version is
 published. The release workflow therefore makes the GitHub release depend on CLI publication, and
 the hosted web deployment depends on that release. See [Release Checklist](../operations/release.md#server-self-update-release-invariant).
 

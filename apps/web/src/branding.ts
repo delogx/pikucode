@@ -1,4 +1,4 @@
-import type { DesktopAppBranding } from "@t3tools/contracts";
+import type { DesktopAppBranding } from "@piku/contracts";
 import { formatAppDisplayName } from "./branding.logic";
 
 function readInjectedDesktopAppBranding(): DesktopAppBranding | null {
@@ -12,15 +12,14 @@ function readInjectedDesktopAppBranding(): DesktopAppBranding | null {
 const injectedDesktopAppBranding = readInjectedDesktopAppBranding();
 const hostedAppChannel = import.meta.env.VITE_HOSTED_APP_CHANNEL?.trim().toLowerCase();
 
-export const HOSTED_APP_CHANNEL =
-  hostedAppChannel === "latest" || hostedAppChannel === "nightly" ? hostedAppChannel : null;
-export const HOSTED_APP_CHANNEL_LABEL =
-  HOSTED_APP_CHANNEL === "nightly" ? "Nightly" : HOSTED_APP_CHANNEL === "latest" ? "Latest" : null;
-export const APP_BASE_NAME = injectedDesktopAppBranding?.baseName ?? "T3 Code";
+/** Nightly is the only hosted channel; anything else is an unlabeled build. */
+export const HOSTED_APP_CHANNEL = hostedAppChannel === "nightly" ? hostedAppChannel : null;
+export const HOSTED_APP_CHANNEL_LABEL = HOSTED_APP_CHANNEL === "nightly" ? "Nightly" : null;
+export const APP_BASE_NAME = injectedDesktopAppBranding?.baseName ?? "Piku Code";
 export const APP_STAGE_LABEL =
   injectedDesktopAppBranding?.stageLabel ??
   HOSTED_APP_CHANNEL_LABEL ??
-  (import.meta.env.DEV ? "Dev" : "Alpha");
+  (import.meta.env.DEV ? "Dev" : "Nightly");
 export const APP_DISPLAY_NAME =
   injectedDesktopAppBranding?.displayName ??
   formatAppDisplayName({ baseName: APP_BASE_NAME, stageLabel: APP_STAGE_LABEL });

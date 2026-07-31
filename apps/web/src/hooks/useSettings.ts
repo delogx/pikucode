@@ -25,7 +25,6 @@ import {
   type UnifiedSettings,
 } from "@piku/contracts/settings";
 import { safeErrorLogAttributes } from "@piku/client-runtime/errors";
-import { APP_STAGE_LABEL } from "~/branding";
 import { resolveSidebarV2Enabled } from "~/branding.logic";
 import { ensureLocalApi } from "~/localApi";
 import * as Struct from "effect/Struct";
@@ -257,7 +256,6 @@ export function useSidebarV2Enabled(): boolean {
         enabled: settings.sidebarV2Enabled,
         configuredByUser: settings.sidebarV2ConfiguredByUser,
         settingsHydrated,
-        stageLabel: APP_STAGE_LABEL,
       }),
     [settings.sidebarV2Enabled, settings.sidebarV2ConfiguredByUser, settingsHydrated],
   );

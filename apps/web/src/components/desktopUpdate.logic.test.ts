@@ -18,7 +18,7 @@ import {
 const baseState: DesktopUpdateState = {
   enabled: true,
   status: "idle",
-  channel: "latest",
+  channel: "nightly",
   currentVersion: "1.0.0",
   hostArch: "x64",
   appArch: "x64",

@@ -13,7 +13,6 @@ import * as Path from "effect/Path";
 
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopConfig from "./DesktopConfig.ts";
-import { isNightlyDesktopVersion } from "../updates/updateChannels.ts";
 
 export interface MakeDesktopEnvironmentInput {
   readonly dirname: string;
@@ -77,22 +76,15 @@ export class DesktopEnvironment extends Context.Service<
 
 const APP_BASE_NAME = "Piku Code";
 
-function resolveDesktopAppStageLabel(input: {
-  readonly isDevelopment: boolean;
-  readonly appVersion: string;
-}): DesktopAppStageLabel {
-  if (input.isDevelopment) {
-    return "Dev";
-  }
-
-  return isNightlyDesktopVersion(input.appVersion) ? "Nightly" : "Alpha";
+function resolveDesktopAppStageLabel(isDevelopment: boolean): DesktopAppStageLabel {
+  return isDevelopment ? "Dev" : "Nightly";
 }
 
 function resolveDesktopAppBranding(input: {
   readonly isDevelopment: boolean;
   readonly appVersion: string;
 }): DesktopAppBranding {
-  const stageLabel = resolveDesktopAppStageLabel(input);
+  const stageLabel = resolveDesktopAppStageLabel(input.isDevelopment);
   return {
     baseName: APP_BASE_NAME,
     stageLabel,
@@ -199,7 +191,7 @@ const make = Effect.fn("desktop.environment.make")(function* (
     linuxWmClass: isDevelopment ? "piku-dev" : "pikucode",
     userDataDirName,
     legacyUserDataDirName,
-    defaultDesktopSettings: DesktopAppSettings.resolveDefaultDesktopSettings(input.appVersion),
+    defaultDesktopSettings: DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,
     runtimeInfo: resolveDesktopRuntimeInfo({
       platform: input.platform,
       processArch: input.processArch,

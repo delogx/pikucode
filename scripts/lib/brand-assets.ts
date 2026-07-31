@@ -30,12 +30,13 @@ export const BRAND_ASSET_PATHS = {
 
 export type WebAssetBrand = "development" | "nightly" | "production";
 
-export const WEB_ASSET_CHANNELS = ["latest", "nightly"] as const;
+/** Nightly is the only hosted channel. */
+export const WEB_ASSET_CHANNELS = ["nightly"] as const;
 
 export type WebAssetChannel = (typeof WEB_ASSET_CHANNELS)[number];
 
-export function resolveWebAssetBrandForChannel(channel: WebAssetChannel): WebAssetBrand {
-  return channel === "nightly" ? "nightly" : "production";
+export function resolveWebAssetBrandForChannel(_channel: WebAssetChannel): WebAssetBrand {
+  return "nightly";
 }
 
 export function resolveWebAssetBrandForPackageVersion(version: string): WebAssetBrand {

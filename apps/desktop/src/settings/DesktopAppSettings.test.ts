@@ -23,8 +23,6 @@ const DesktopSettingsPatch = Schema.Struct({
   ),
   mainWindowMaximized: Schema.optionalKey(Schema.Boolean),
   serverExposureMode: Schema.optionalKey(Schema.Literals(["local-only", "network-accessible"])),
-  updateChannel: Schema.optionalKey(Schema.Literals(["latest", "nightly"])),
-  updateChannelConfiguredByUser: Schema.optionalKey(Schema.Boolean),
 });
 
 const decodeDesktopSettingsPatch = Schema.decodeEffect(Schema.fromJsonString(DesktopSettingsPatch));
@@ -92,45 +90,23 @@ describe("DesktopSettings", () => {
     ),
   );
 
-  it("defaults packaged nightly builds to the nightly update channel", () => {
-    assert.deepEqual(
-      DesktopAppSettings.resolveDefaultDesktopSettings("0.0.17-nightly.20260415.1"),
-      {
-        mainWindowBounds: null,
-        mainWindowMaximized: false,
-        serverExposureMode: "local-only",
-        updateChannel: "nightly",
-        updateChannelConfiguredByUser: false,
-      } satisfies DesktopAppSettings.DesktopSettings,
-    );
-  });
-
   it.effect("loads persisted settings and applies semantic updates", () =>
     withSettings(
       Effect.gen(function* () {
         const settings = yield* DesktopAppSettings.DesktopAppSettings;
         yield* writeSettingsPatch({
           serverExposureMode: "network-accessible",
-          updateChannel: "latest",
-          updateChannelConfiguredByUser: true,
         });
 
         assert.deepEqual(yield* settings.load, {
           mainWindowBounds: null,
           mainWindowMaximized: false,
           serverExposureMode: "network-accessible",
-          updateChannel: "latest",
-          updateChannelConfiguredByUser: true,
         } satisfies DesktopAppSettings.DesktopSettings);
 
         const exposure = yield* settings.setServerExposureMode("local-only");
         assert.isTrue(exposure.changed);
         assert.equal(exposure.settings.serverExposureMode, "local-only");
-
-        const updateChannel = yield* settings.setUpdateChannel("nightly");
-        assert.isTrue(updateChannel.changed);
-        assert.equal(updateChannel.settings.updateChannel, "nightly");
-        assert.equal(updateChannel.settings.updateChannelConfiguredByUser, true);
       }),
     ),
   );
@@ -163,10 +139,6 @@ describe("DesktopSettings", () => {
 
         const exposure = yield* settings.setServerExposureMode("local-only");
         assert.isFalse(exposure.changed);
-
-        const updateChannel = yield* settings.setUpdateChannel("latest");
-        assert.isFalse(updateChannel.changed);
-        assert.equal(updateChannel.settings.updateChannelConfiguredByUser, false);
       }),
     ),
   );
@@ -205,8 +177,6 @@ describe("DesktopSettings", () => {
           mainWindowBounds: { x: 120, y: 80, width: 1280, height: 900 },
           mainWindowMaximized: false,
           serverExposureMode: "network-accessible",
-          updateChannel: "latest",
-          updateChannelConfiguredByUser: false,
         } satisfies DesktopAppSettings.DesktopSettings);
       }),
     ),
@@ -252,46 +222,4 @@ describe("DesktopSettings", () => {
     ),
   );
 
-  it.effect("migrates legacy implicit update channels to the runtime default", () =>
-    withSettings(
-      Effect.gen(function* () {
-        const settings = yield* DesktopAppSettings.DesktopAppSettings;
-        yield* writeSettingsPatch({
-          serverExposureMode: "local-only",
-          updateChannel: "latest",
-        });
-
-        assert.deepEqual(yield* settings.load, {
-          mainWindowBounds: null,
-          mainWindowMaximized: false,
-          serverExposureMode: "local-only",
-          updateChannel: "nightly",
-          updateChannelConfiguredByUser: false,
-        } satisfies DesktopAppSettings.DesktopSettings);
-      }),
-      { appVersion: "0.0.17-nightly.20260415.1" },
-    ),
-  );
-
-  it.effect("preserves explicit stable update channel on nightly builds", () =>
-    withSettings(
-      Effect.gen(function* () {
-        const settings = yield* DesktopAppSettings.DesktopAppSettings;
-        yield* writeSettingsPatch({
-          serverExposureMode: "local-only",
-          updateChannel: "latest",
-          updateChannelConfiguredByUser: true,
-        });
-
-        assert.deepEqual(yield* settings.load, {
-          mainWindowBounds: null,
-          mainWindowMaximized: false,
-          serverExposureMode: "local-only",
-          updateChannel: "latest",
-          updateChannelConfiguredByUser: true,
-        } satisfies DesktopAppSettings.DesktopSettings);
-      }),
-      { appVersion: "0.0.17-nightly.20260415.1" },
-    ),
-  );
 });

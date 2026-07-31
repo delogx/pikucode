@@ -209,7 +209,6 @@ function makeTestLayer(input: {
         return { settings: desktopSettings, changed };
       }),
     setServerExposureMode: () => Effect.die("unexpected server exposure update"),
-    setUpdateChannel: () => Effect.die("unexpected update channel change"),
   } satisfies DesktopAppSettings.DesktopAppSettings["Service"]);
 
   const electronWindowLayer = Layer.succeed(ElectronWindow.ElectronWindow, {

@@ -168,7 +168,6 @@ describe("DesktopServerExposure", () => {
       load: Effect.succeed(DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS),
       setMainWindowBounds: () => Effect.die("unexpected main window bounds update"),
       setServerExposureMode: () => Effect.fail(settingsFailure),
-      setUpdateChannel: () => Effect.die("unexpected update channel change"),
     } satisfies DesktopAppSettings.DesktopAppSettings["Service"]);
 
     return withHarness(

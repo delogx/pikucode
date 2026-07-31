@@ -32,7 +32,6 @@ import {
   resolveBuildOptions,
   resolveDesktopBuildIconAssets,
   resolveDesktopProductName,
-  resolveDesktopUpdateChannel,
   resolveDesktopWebAssetBrand,
   resolveResourceMonitorRustTargets,
   resourceMonitorExecutableName,
@@ -84,36 +83,24 @@ function iconResizeSpawnerLayer(
 }
 
 it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
-  it("resolves the dedicated nightly updater channel from nightly versions", () => {
-    assert.equal(resolveDesktopUpdateChannel("0.0.17-nightly.20260413.42"), "nightly");
-    assert.equal(resolveDesktopUpdateChannel("0.0.17"), "latest");
+  it("uses the nightly desktop packaging product name", () => {
+    assert.equal(resolveDesktopProductName(), "Piku Code (Nightly)");
   });
 
-  it("switches desktop packaging product names to nightly for nightly builds", () => {
-    assert.equal(resolveDesktopProductName("0.0.17"), "Piku Code (Alpha)");
-    assert.equal(resolveDesktopProductName("0.0.17-nightly.20260413.42"), "Piku Code (Nightly)");
-  });
-
-  it("switches desktop packaging icons to the nightly artwork for nightly versions", () => {
-    assert.deepStrictEqual(resolveDesktopBuildIconAssets("0.0.17"), {
-      macIconPng: BRAND_ASSET_PATHS.productionMacIconPng,
-      linuxIconPng: BRAND_ASSET_PATHS.productionLinuxIconPng,
-    });
-
-    assert.deepStrictEqual(resolveDesktopBuildIconAssets("0.0.17-nightly.20260413.42"), {
+  it("uses the nightly desktop packaging icons", () => {
+    assert.deepStrictEqual(resolveDesktopBuildIconAssets(), {
       macIconPng: BRAND_ASSET_PATHS.nightlyMacIconPng,
       linuxIconPng: BRAND_ASSET_PATHS.nightlyLinuxIconPng,
     });
   });
 
-  it("switches the bundled splash and favicon branding for nightly versions", () => {
-    assert.equal(resolveDesktopWebAssetBrand("0.0.17"), "production");
-    assert.equal(resolveDesktopWebAssetBrand("0.0.17-nightly.20260413.42"), "nightly");
+  it("uses the nightly bundled splash and favicon branding", () => {
+    assert.equal(resolveDesktopWebAssetBrand(), "nightly");
   });
 
   it.effect("resolves GitHub desktop publish config from Effect config", () =>
     Effect.gen(function* () {
-      const latestConfig = yield* resolveGitHubPublishConfig("latest").pipe(
+      const fromOverride = yield* resolveGitHubPublishConfig().pipe(
         Effect.provide(
           ConfigProvider.layer(
             ConfigProvider.fromEnv({
@@ -124,7 +111,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
           ),
         ),
       );
-      const nightlyConfig = yield* resolveGitHubPublishConfig("nightly").pipe(
+      const fromGitHubRepository = yield* resolveGitHubPublishConfig().pipe(
         Effect.provide(
           ConfigProvider.layer(
             ConfigProvider.fromEnv({
@@ -136,19 +123,15 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
         ),
       );
 
-      assert.deepStrictEqual(latestConfig, {
-        provider: "github",
-        owner: "pingdotgg",
-        repo: "pikucode",
-        releaseType: "release",
-      });
-      assert.deepStrictEqual(nightlyConfig, {
+      const expected = {
         provider: "github",
         owner: "pingdotgg",
         repo: "pikucode",
         releaseType: "prerelease",
         channel: "nightly",
-      });
+      };
+      assert.deepStrictEqual(fromOverride, expected);
+      assert.deepStrictEqual(fromGitHubRepository, expected);
     }),
   );
 

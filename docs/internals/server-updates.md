@@ -98,8 +98,8 @@ directory is left in place.
 
 The systemd user service is a host lifecycle concern, not a Piku Connect resource. The standalone
 `piku service install`, `uninstall`, `update`, and `status` commands own it. Install and update both
-reconcile the unit through `BootService`; running `npx piku@latest service update` therefore pins and
-activates the latest CLI release without requiring a connected client.
+reconcile the unit through `BootService`; running `npx piku@nightly service update` therefore pins and
+activates the newest nightly CLI release without requiring a connected client.
 
 The `piku connect` onboarding flow may offer service installation, but it calls the same reconciliation
 operation as `piku service install`. Connect logout only disables cloud access and clears its

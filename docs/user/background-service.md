@@ -5,28 +5,28 @@ boots and keeps running after you log out.
 
 ## Manage the Service
 
-Install it with the latest Piku Code release:
+Install it with the newest Piku Code nightly release:
 
 ```sh
-npx piku@latest service install
+npx piku@nightly service install
 ```
 
 Check whether it is installed:
 
 ```sh
-npx piku@latest service status
+npx piku@nightly service status
 ```
 
 Update or repair it:
 
 ```sh
-npx piku@latest service update
+npx piku@nightly service update
 ```
 
 Stop it and remove it from startup:
 
 ```sh
-npx piku@latest service uninstall
+npx piku@nightly service uninstall
 ```
 
 Updating restarts Piku Code briefly. Let active agent work and terminal commands finish first.

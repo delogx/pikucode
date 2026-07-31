@@ -2,9 +2,8 @@
 
 > For maintainers. Using Piku Code? See [docs/user](../user/).
 
-Remote environments are shipped, not planned. Direct, bearer-paired, relay-tunneled, and
-desktop-managed SSH access all exist today. This document describes the model they share and where
-each piece lives. For the user-facing setup guide see
+Remote environments are shipped, not planned. Direct, bearer-paired, and relay-tunneled access all
+exist today. This document describes the model they share and where each piece lives. For the user-facing setup guide see
 [remote access](../user/remote-access.md).
 
 ## The model
@@ -21,8 +20,7 @@ the connection layer, never by splitting the runtime.
                 │ resolves one access endpoint
 ┌───────────────▼──────────────────────────────┐
 │ Access method                                │
-│  direct ws/wss, relay tunnel,                │
-│  desktop-managed ssh                         │
+│  direct ws/wss, relay tunnel                 │
 └───────────────┬──────────────────────────────┘
                 │ connects to one Piku server
 ┌───────────────▼──────────────────────────────┐
@@ -48,16 +46,15 @@ server-authored; it is local to a device or client profile. In the hosted web ap
 browser-local. A hosted pairing URL can create one, but it does not give the hosted app a server-side
 control plane or a copy of session state.
 
-[`connection/model.ts`][model] defines four target tags, which are the real access taxonomy:
+[`connection/model.ts`][model] defines three target tags, which are the real access taxonomy:
 
 | Target                    | Used for                                                                 |
 | ------------------------- | ------------------------------------------------------------------------ |
 | `PrimaryConnectionTarget` | The platform-managed local server (desktop backend, CLI-served web app). |
 | `BearerConnectionTarget`  | Any manually paired endpoint reached over direct HTTP/WebSocket.         |
 | `RelayConnectionTarget`   | Managed Piku Connect relay tunnels.                                      |
-| `SshConnectionTarget`     | Desktop-managed SSH environments.                                        |
 
-Bearer, relay, and SSH are persisted; primary is platform-managed. Any manually reachable URL is
+Bearer and relay are persisted; primary is platform-managed. Any manually reachable URL is
 paired through the ordinary bearer path in [`onboarding.ts`][onboarding]
 (`preparePairingRegistration`), which accepts either a pairing URL or a host plus pairing code.
 
@@ -144,26 +141,6 @@ relay Worker only brokers credentials and a managed endpoint; application traffi
 the provisioned Cloudflare tunnel hostname for the life of the connection, not through the relay
 Worker itself. See [piku-connect.md](./piku-connect.md).
 
-### Desktop-managed SSH access
-
-SSH is an access and launch helper, not a separate environment type. `DesktopSshEnvironment`
-([apps/desktop/src/ssh/DesktopSshEnvironment.ts][sshenv]) exposes `discoverHosts`,
-`ensureEnvironment`, and `disconnectEnvironment`. It discovers targets from SSH config and known
-hosts, owns password/askpass prompts, and delegates lifecycle to `SshEnvironmentManager` in
-[packages/ssh/src/tunnel.ts][sshtunnel], which resolves the target, launches or reuses the remote Piku
-server, opens a local tunnel, checks HTTP readiness, optionally issues a remote pairing token, and
-returns local HTTP/WS endpoints. Disconnect closes the tunnel and stops the remote server if the
-launcher started it; a server that was already running (marked `external`) is left running.
-
-The desktop main process owns this because it can spawn SSH, manage prompts, write launch scripts,
-and clean up forwards. The renderer connects through the forwarded URL like any other environment and
-needs no SSH-specific RPC path.
-
-Failure handling is explicit: SSH auth failure surfaces before an environment is saved, remote launch
-failure includes launcher output where available, forwarded-port failure leaves the environment
-disconnected rather than falling back to an unrelated endpoint, and reconnect restores the SSH bridge
-before reconnecting the WebSocket client.
-
 ## Launch methods
 
 Launch answers a different question: how does a Piku server come to exist on the target machine? Keep
@@ -171,15 +148,11 @@ it separate from access.
 
 - **Pre-existing server.** The operator already runs Piku and the client connects directly or through a
   tunnel.
-- **Desktop-managed remote launch over SSH.** Desktop probes the machine, launches or reuses a remote
-  server, forwards a port, and the renderer connects normally. The saved environment records that it
-  came from SSH launch for reconnect and lifecycle UX only; that metadata never changes the protocol
-  or the identity model.
 - **Client-managed local publish.** A local server is published through the relay with
   `piku connect link`, exposing a desktop-hosted environment to remote clients without router or
   firewall changes.
 
-The same `ExecutionEnvironment` can be reached several of these ways. Only the launch and access
+The same `ExecutionEnvironment` can be reached either of these ways. Only the launch and access
 paths differ.
 
 ## Security model
@@ -220,5 +193,3 @@ These remain unbuilt and are listed to keep the model honest:
 [model]: ../../packages/client-runtime/src/connection/model.ts
 [onboarding]: ../../packages/client-runtime/src/connection/onboarding.ts
 [authremote]: ../../packages/client-runtime/src/authorization/remote.ts
-[sshenv]: ../../apps/desktop/src/ssh/DesktopSshEnvironment.ts
-[sshtunnel]: ../../packages/ssh/src/tunnel.ts

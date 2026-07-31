@@ -70,28 +70,38 @@ describe("add project shared logic", () => {
             detail: Option.none(),
           },
         },
-        {
-          kind: "gitlab",
-          label: "GitLab",
-          status: "available",
-          installHint: "Install glab",
-          version: Option.some("1.0.0"),
-          detail: Option.none(),
-          auth: {
-            status: "unauthenticated",
-            account: Option.none(),
-            host: Option.none(),
-            detail: Option.some("Run glab auth login"),
-          },
-        },
       ],
     };
 
     const readiness = buildAddProjectRemoteSourceReadiness(discovery);
     expect(readiness.url.ready).toBe(true);
     expect(readiness.github.ready).toBe(true);
-    expect(readiness.gitlab).toEqual({ ready: false, hint: "Run glab auth login" });
     expect(sortAddProjectProviderSources(readiness)[0]).toBe("github");
+  });
+
+  it("surfaces the auth hint for unauthenticated source control providers", () => {
+    const discovery: SourceControlDiscoveryResult = {
+      versionControlSystems: [],
+      sourceControlProviders: [
+        {
+          kind: "github",
+          label: "GitHub",
+          status: "available",
+          installHint: "Install gh",
+          version: Option.some("1.0.0"),
+          detail: Option.none(),
+          auth: {
+            status: "unauthenticated",
+            account: Option.none(),
+            host: Option.none(),
+            detail: Option.some("Run gh auth login"),
+          },
+        },
+      ],
+    };
+
+    const readiness = buildAddProjectRemoteSourceReadiness(discovery);
+    expect(readiness.github).toEqual({ ready: false, hint: "Run gh auth login" });
   });
 
   it("finds existing projects by normalized path in the target environment", () => {

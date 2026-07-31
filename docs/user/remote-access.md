@@ -30,8 +30,8 @@ That gives you:
 
 ## Enabling Network Access
 
-There are three ways to reach your server from another device: expose the desktop app's backend,
-run a headless server from the CLI, or have the desktop app launch Piku Code over SSH.
+There are two ways to reach your server from another device: expose the desktop app's backend, or
+run a headless server from the CLI.
 
 ### Option 1: Desktop App
 
@@ -85,51 +85,6 @@ or your own HTTPS endpoint in front of the server.
 
 Once paired, add projects normally: open the Command Palette and choose **Add Project**, then pick
 the environment the project lives on. Every saved environment is offered, not only the local one.
-
-### Option 3: Desktop-Managed SSH Launch
-
-Use this when you want the desktop app to start or reuse Piku Code on another machine over SSH.
-
-1. Open **Settings** → **Connections**.
-2. Under **Remote Environments**, choose **Add environment**.
-3. Select the SSH launch flow.
-4. Enter the SSH target, such as `user@example.com`.
-5. Confirm the launch. The desktop app probes the host, starts or reuses a remote Piku server, opens a local port forward, and saves the environment.
-
-After setup, the renderer connects to a local forwarded HTTP/WebSocket endpoint. The remote host still owns the actual Piku server, projects, files, git state, terminals, and provider sessions.
-
-SSH launch is a desktop feature because it needs local process and SSH access. Once the environment is paired and saved, it uses the same environment list and connection model as direct LAN, HTTPS, or tunnel-backed environments.
-
-#### SSH Launch Troubleshooting
-
-The desktop SSH launcher connects with a non-interactive `sh` session, writes a small launcher script under `~/.pikucode/ssh-launch/<host-key>/`, starts or reuses a remote Piku server, and forwards the remote loopback port back to your desktop.
-
-The remote host must have a compatible Node.js runtime. Piku Code uses the server package's `engines.node` requirement:
-
-```text
-^22.16 || ^23.11 || >=24.10
-```
-
-During SSH launch, Piku Code first checks whether `node` is on `PATH`. If it is missing, the launcher
-looks in the usual install directories and tries to activate a version manager if it finds one
-(Volta, asdf, mise, fnm, nodenv, nvm). That covers most setups, but a version manager that only
-initializes from an interactive shell profile will not be picked up.
-
-If launch fails with `node: command not found`, a port-scan failure, or a message that the remote Node version does not satisfy the required range, SSH into the host and check the same non-interactive shell path Piku Code uses:
-
-```bash
-ssh user@example.com 'sh -lc "command -v node && node --version"'
-```
-
-If that does not print a compatible Node version, configure your version manager for non-interactive shells or install a compatible Node binary in one of the searched locations. For example, with nvm you may need a default alias:
-
-```bash
-nvm alias default 24
-```
-
-With mise, asdf, fnm, or nodenv, make sure the tool's shim directory is installed and resolves to a Node version satisfying the range above without an interactive shell.
-
-If reconnecting after an app update fails, retry the SSH launch once. The launcher now compares its generated runner script, stops stale launcher-managed remote servers, clears the SSH launch PID/port state, and starts a fresh remote server. You should not normally need to delete `~/.pikucode/ssh-launch` or kill `piku` processes manually.
 
 ## Updating a Remote Server
 

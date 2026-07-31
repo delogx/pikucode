@@ -254,28 +254,28 @@ describe("when: ref is clean, ahead, and has no open PR", () => {
   });
 });
 
-describe("when: source control provider uses merge requests", () => {
-  it("uses GitLab MR terminology in quick actions and menu items", () => {
-    const gitlabStatus = status({
+describe("when: the source control provider is unrecognized", () => {
+  it("uses generic change request terminology in quick actions and menu items", () => {
+    const unknownStatus = status({
       aheadCount: 2,
       sourceControlProvider: {
-        kind: "gitlab",
-        name: "GitLab",
-        baseUrl: "https://gitlab.com",
+        kind: "unknown",
+        name: "source control",
+        baseUrl: "https://self-hosted.example.test",
       },
     });
 
-    const quick = resolveQuickAction(gitlabStatus, false);
-    const items = buildMenuItems(gitlabStatus, false);
+    const quick = resolveQuickAction(unknownStatus, false);
+    const items = buildMenuItems(unknownStatus, false);
 
     assert.deepInclude(quick, {
       kind: "run_action",
       action: "create_pr",
-      label: "Push & create MR",
+      label: "Push & create change request",
     });
     assert.deepInclude(items[2], {
       id: "pr",
-      label: "Create MR",
+      label: "Create change request",
     });
   });
 });

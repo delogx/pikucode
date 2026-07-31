@@ -7,23 +7,8 @@ import {
 } from "./sourceControl.ts";
 
 describe("source control presentation", () => {
-  it("uses merge request terminology for GitLab", () => {
-    expect(getChangeRequestTerminologyForKind("gitlab")).toEqual({
-      shortLabel: "MR",
-      singular: "merge request",
-    });
-  });
-
-  it("uses pull request terminology for GitHub-compatible providers", () => {
+  it("uses pull request terminology for GitHub", () => {
     expect(getChangeRequestTerminologyForKind("github")).toEqual({
-      shortLabel: "PR",
-      singular: "pull request",
-    });
-    expect(getChangeRequestTerminologyForKind("azure-devops")).toEqual({
-      shortLabel: "PR",
-      singular: "pull request",
-    });
-    expect(getChangeRequestTerminologyForKind("bitbucket")).toEqual({
       shortLabel: "PR",
       singular: "pull request",
     });
@@ -42,28 +27,25 @@ describe("source control presentation", () => {
 });
 
 describe("detectSourceControlProviderFromRemoteUrl", () => {
-  it("detects common source control hosts", () => {
+  it("detects GitHub remotes and treats every other host as unknown", () => {
     expect(detectSourceControlProviderFromRemoteUrl("git@github.com:owner/repo.git")?.kind).toBe(
       "github",
     );
     expect(
       detectSourceControlProviderFromRemoteUrl("https://gitlab.com/group/repo.git")?.kind,
-    ).toBe("gitlab");
-    expect(
-      detectSourceControlProviderFromRemoteUrl("https://dev.azure.com/org/project/_git/repo")?.kind,
-    ).toBe("azure-devops");
+    ).toBe("unknown");
     expect(
       detectSourceControlProviderFromRemoteUrl("git@bitbucket.org:workspace/repo.git")?.kind,
-    ).toBe("bitbucket");
+    ).toBe("unknown");
   });
 
   it("preserves ports while classifying by hostname", () => {
     expect(
-      detectSourceControlProviderFromRemoteUrl("https://gitlab.com:8443/group/repo.git"),
+      detectSourceControlProviderFromRemoteUrl("https://github.com:8443/owner/repo.git"),
     ).toEqual({
-      kind: "gitlab",
-      name: "GitLab",
-      baseUrl: "https://gitlab.com:8443",
+      kind: "github",
+      name: "GitHub",
+      baseUrl: "https://github.com:8443",
     });
     expect(
       detectSourceControlProviderFromRemoteUrl(

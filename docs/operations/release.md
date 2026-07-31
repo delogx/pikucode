@@ -37,60 +37,26 @@ never commit version bumps back to `main`, so there is no finalize job.
 
 ## Piku Connect relay deployment
 
-The relay is a shared control plane versioned separately from client releases. All nightly client
-builds point at the same relay so users see the same linked environments.
+The relay is a shared control plane deployed and versioned outside this repository. All nightly
+client builds point at the same relay so users see the same linked environments.
 
-`.github/workflows/deploy-relay.yml` deploys Alchemy stage `prod` on every push to `main`. The
-release workflow reads the relay URL and Clerk client configuration from the existing `production`
-GitHub Actions environment before building desktop, CLI, or hosted web artifacts.
+The release workflow reads the relay URL and Clerk client configuration from the existing
+`production` GitHub Actions environment before building desktop, CLI, or hosted web artifacts.
 
-Required repository variables shared by relay deployments:
+Required repository variables:
 
-- `CLOUDFLARE_ACCOUNT_ID`
-- `PLANETSCALE_ORGANIZATION`
-- `AXIOM_ORG_ID`
-
-Required repository secrets shared by relay deployments:
-
-- `CLOUDFLARE_API_TOKEN`
-- `PLANETSCALE_API_TOKEN_ID`
-- `PLANETSCALE_API_TOKEN`
-- `AXIOM_TOKEN`
+- `PIKU_RELAY_URL`
 
 Required `production` environment variables:
 
-- `RELAY_API_ZONE_NAME`
-- `RELAY_TUNNEL_ZONE_NAME`
 - `CLERK_PUBLISHABLE_KEY`
 - `CLERK_JWT_AUDIENCE`
 - `CLERK_JWT_TEMPLATE`
 - `CLERK_CLI_OAUTH_CLIENT_ID`
-- `APNS_ENVIRONMENT`
-- `APNS_TEAM_ID`
-- `APNS_KEY_ID`
-- `APNS_BUNDLE_ID`
 
-Optional `production` environment variables:
-
-- `RELAY_DOMAIN` when overriding the derived `relay.<RELAY_API_ZONE_NAME>` domain
-
-Required `production` environment secrets:
-
-- `CLERK_SECRET_KEY`
-- `APNS_PRIVATE_KEY`
-
-The account-scoped repository credentials are consumed by Alchemy while provisioning relay stages; they
-are not bound into the relay Worker. The production deployment uses an Axiom personal access token,
-so `AXIOM_ORG_ID` must accompany `AXIOM_TOKEN`. The `prod` stage owns the retained PlanetScale
-database. Local personal stages provision isolated branches from it and are never deployed by CI.
-Production adopts the configured relay API and tunnel DNS zones as retained Cloudflare resources.
-Personal stages reference the production-owned zones.
-
-Developers deploy personal stages locally rather than through pull-request automation:
-
-```sh
-vp run --filter pikucode-relay deploy -- --stage "$USER" --env-file .env.local
-```
+Optional client telemetry variables (`PIKU_RELAY_CLIENT_OTLP_TRACES_URL`,
+`PIKU_RELAY_CLIENT_OTLP_TRACES_DATASET`) and the matching
+`PIKU_RELAY_CLIENT_OTLP_TRACES_TOKEN` secret are forwarded to client builds when present.
 
 ## Hosted web app release deployment
 

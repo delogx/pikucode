@@ -23,16 +23,16 @@ We wanted something performant, remote-ready, and truly open. If we ever go the 
 The easiest way to test Piku Code is to run the server in your terminal (requires Node.js 22.16+, 23.11+, or 24.10+):
 
 ```bash
-npx piku@latest
+npx piku@nightly
 ```
 
 This will launch Piku Code's backend on your machine as well as the local web app to control your agents.
 
-Tip: Use `npx piku@latest --help` for the full CLI reference.
+Tip: Use `npx piku@nightly --help` for the full CLI reference.
 
 ### Desktop app
 
-Install the latest version of the desktop app from [GitHub Releases](https://github.com/pingdotgg/pikucode/releases), or from your favorite package registry:
+Install the newest nightly build of the desktop app from [GitHub Releases](https://github.com/pingdotgg/pikucode/releases), or from your favorite package registry:
 
 #### macOS (Homebrew)
 

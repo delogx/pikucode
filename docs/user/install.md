@@ -11,15 +11,15 @@ At least one provider CLI, installed and authenticated. See [Providers](#provide
 ## Run Without Installing
 
 ```bash
-npx piku@latest
+npx piku@nightly
 ```
 
 This starts the Piku Code server on your machine and opens the local web app. Use
-`npx piku@latest --help` for the full CLI reference.
+`npx piku@nightly --help` for the full CLI reference.
 
 ## Desktop App
 
-Download the latest release from
+Download the newest nightly release from
 [GitHub Releases](https://github.com/pingdotgg/pikucode/releases), or install from a package
 registry.
 

@@ -46,8 +46,8 @@ pin the same version:
 npx piku@<client-version> service update
 ```
 
-`service update` installs the version of the CLI that invoked it, so `npx piku@latest service update`
-only resolves the skew when your client happens to be on the latest release. The exact version from
+`service update` installs the version of the CLI that invoked it, so `npx piku@nightly service update`
+only resolves the skew when your client happens to be on the newest nightly. The exact version from
 the warning always works.
 
 See [Running Piku Code in the Background](./background-service.md) for install, status, and removal

@@ -4,10 +4,12 @@
 
 Piku Connect uses one Clerk application for web and desktop authentication. The relay verifies
 two kinds of bearer credential: template JWTs generated from the `piku-relay` template with the shared
-`piku-code-relay` audience, and Clerk OAuth tokens issued to the CLI. `verifyRelayClientBearerToken` in
-`infra/relay/src/http/Api.ts` tries the template/session path first and falls back to OAuth
-verification (`acceptsToken: "oauth_token"`), so the CLI's OAuth credential works without a JWT
-template.
+`piku-code-relay` audience, and Clerk OAuth tokens issued to the CLI. It tries the template/session
+path first and falls back to OAuth verification (`acceptsToken: "oauth_token"`), so the CLI's OAuth
+credential works without a JWT template.
+
+The relay itself is deployed and operated outside this repository. This repo only contains the
+clients that talk to it, configured through `PIKU_RELAY_URL`.
 
 For the wider system diagram, see
 [piku-code-connect-auth-flow.html](./piku-code-connect-auth-flow.html).
@@ -47,19 +49,9 @@ registers a hidden fallback `connect` command that reports the missing configura
 silently vanishing from help. The bundled server still accepts runtime overrides for self-hosted or
 operator-managed deployments.
 
-For a hosted relay deployment, copy `infra/relay/.env.example` to `infra/relay/.env`. The relay
-deployment reads `RELAY_DOMAIN`, `RELAY_API_ZONE_NAME`, `RELAY_TUNNEL_ZONE_NAME`,
-`CLERK_PUBLISHABLE_KEY`, and `CLERK_JWT_AUDIENCE` through Effect `Config`. There are no checked-in
-deployment defaults.
-`vp run --filter pikucode-relay deploy` invokes Alchemy from the relay directory, so Alchemy loads
-`infra/relay/.env`. After a successful deployment, the wrapper updates the repository-root `.env`
-with the deployed HTTPS relay URL. The relay still requires
-`CLERK_SECRET_KEY` as an Alchemy secret. Never put `CLERK_SECRET_KEY` in a client application
-environment or commit it to the repository.
-
-The `prod` Alchemy stage owns the retained PlanetScale database. Non-production stages reference
-that database and provision isolated PlanetScale branches, so deploy `prod` before creating a
-personal developer stage.
+Point `PIKU_RELAY_URL` at the relay deployment you want to use. The relay holds
+`CLERK_SECRET_KEY` in its own deployment environment. Never put `CLERK_SECRET_KEY` in a client
+application environment or commit it to the repository.
 
 ## Headless CLI OAuth Application
 
@@ -134,10 +126,9 @@ In **Clerk Dashboard > JWT templates**, create a template with:
 | Name    | `piku-relay`                   |
 | Claims  | `{ "aud": "piku-code-relay" }` |
 
-Set `PIKU_CLERK_JWT_TEMPLATE=piku-relay` in the repository-root `.env`, and set
-`CLERK_JWT_AUDIENCE=piku-code-relay` in `infra/relay/.env`. Define `CLERK_JWT_TEMPLATE` and
-`CLERK_JWT_AUDIENCE` in the production relay deployment environment as well. The stable `aud` value
-is shared by production and non-production relay stages. The client-facing `PIKU_RELAY_URL` still
+Set `PIKU_CLERK_JWT_TEMPLATE=piku-relay` in the repository-root `.env`, and define
+`CLERK_JWT_TEMPLATE` and `CLERK_JWT_AUDIENCE=piku-code-relay` in the relay deployment environment.
+The stable `aud` value is shared by production and non-production relay deployments. The client-facing `PIKU_RELAY_URL` still
 selects the concrete relay deployment, but changing that URL does not require a JWT template change.
 
 ## Desktop OAuth Redirect Allowlist
@@ -211,7 +202,7 @@ binary from another:
 ```sh
 VITE_DEV_SERVER_URL=http://127.0.0.1:5733 \
 PIKU_PORT=13773 \
-  "/Applications/Piku Code (Alpha).app/Contents/MacOS/Piku Code (Alpha)"
+  "/Applications/Piku Code (Nightly).app/Contents/MacOS/Piku Code (Nightly)"
 ```
 
 After changing Associated Domains, bump the build version before rebuilding; macOS may otherwise
@@ -220,8 +211,8 @@ reuse stale Shared Web Credentials metadata for the same app/version pair.
 Verify the installed bundle before testing:
 
 ```sh
-codesign --verify --deep --strict "/Applications/Piku Code (Alpha).app"
-codesign -d --entitlements :- "/Applications/Piku Code (Alpha).app"
+codesign --verify --deep --strict "/Applications/Piku Code (Nightly).app"
+codesign -d --entitlements :- "/Applications/Piku Code (Nightly).app"
 ```
 
 ## Sign-in Surfaces

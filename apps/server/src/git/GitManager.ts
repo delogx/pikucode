@@ -871,7 +871,7 @@ export const make = Effect.gen(function* () {
     normalizeStatusCacheKey(cwd).pipe(
       Effect.flatMap((cacheKey) => Cache.invalidate(localStatusResultCache, cacheKey)),
     );
-  // PR lookups hit the hosting provider's API (gh/glab/...), so they refresh
+  // PR lookups hit the hosting provider's API (gh), so they refresh
   // on their own, slower cadence: ahead/behind counts stay fresh on every
   // status poll while the PR association is re-fetched at most once per
   // PR_LOOKUP_CACHE_TTL per branch. Git actions and user-driven refreshes bump

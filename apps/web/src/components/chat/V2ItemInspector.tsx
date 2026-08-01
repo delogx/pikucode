@@ -271,6 +271,23 @@ export const V2ItemInspector = memo(function V2ItemInspector(props: V2ItemInspec
         </Button>
       ) : null}
 
+      {item.type === "workflow" ? (
+        <div className="space-y-1 rounded-md border border-border/45 p-2 text-muted-foreground">
+          <p>
+            {item.workflowName} · {item.agents.length} agents · {item.phases.length} phases
+          </p>
+          {item.childThreadId !== null ? (
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => props.onOpenThread(item.childThreadId!)}
+            >
+              Open workflow thread
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
       {item.type === "handoff" ? (
         <div className="space-y-1 rounded-md border border-border/45 p-2 text-muted-foreground">
           <p>

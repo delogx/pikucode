@@ -999,6 +999,172 @@ describe("MessagesTimeline", () => {
     expect(markup).not.toContain("Work Log");
   });
 
+  it("renders a running dynamic workflow with phases, agents, and live progress", async () => {
+    const { MessagesTimeline } = await import("./MessagesTimeline");
+    const markup = renderToStaticMarkup(
+      <MessagesTimeline
+        {...buildProps()}
+        timelineEntries={[
+          {
+            id: "workflow-running",
+            kind: "event",
+            createdAt: MESSAGE_CREATED_AT,
+            projectedItem: {
+              position: 0,
+              visibility: "local",
+              sourceThreadId: "thread-1",
+              sourceItemId: "workflow-running",
+              item: {
+                id: "workflow-running",
+                threadId: "thread-1",
+                runId: "run-1",
+                nodeId: "node-workflow-1",
+                providerThreadId: "provider-thread-1",
+                providerTurnId: "provider-turn-1",
+                nativeItemRef: null,
+                parentItemId: null,
+                ordinal: 1,
+                status: "running",
+                title: "Sample workflow demonstrating the timeline",
+                startedAt: null,
+                completedAt: null,
+                updatedAt: {},
+                type: "workflow",
+                subagentId: "node-workflow-1",
+                driver: "claudeAgent",
+                providerInstanceId: "claudeAgent",
+                childThreadId: "thread-workflow-1",
+                workflowName: "sample-workflow",
+                description: "Sample workflow demonstrating the timeline",
+                phases: [
+                  { index: 1, title: "Discovery", detail: "three trivial questions" },
+                  { index: 2, title: "Summary" },
+                ],
+                agents: [
+                  {
+                    index: 1,
+                    label: "Geography Query",
+                    phaseIndex: 1,
+                    phaseTitle: "Discovery",
+                    model: "claude-haiku-4-5-20251001",
+                    status: "completed",
+                    resultPreview: "Canberra",
+                    totalTokens: 9100,
+                    toolUses: 0,
+                    durationMs: 1200,
+                  },
+                  {
+                    index: 2,
+                    label: "Astronomy Query",
+                    phaseIndex: 1,
+                    phaseTitle: "Discovery",
+                    model: "claude-haiku-4-5-20251001",
+                    status: "running",
+                  },
+                  {
+                    index: 3,
+                    label: "Synthesis",
+                    phaseIndex: 2,
+                    phaseTitle: "Summary",
+                    model: null,
+                    status: "queued",
+                  },
+                ],
+                progress: "Discovery: Astronomy Query",
+                result: null,
+                totalTokens: 18200,
+                durationMs: 4200,
+              },
+            } as never,
+          },
+        ]}
+      />,
+    );
+
+    expect(markup).toContain('data-v2-item-type="workflow"');
+    expect(markup).toContain("sample-workflow");
+    expect(markup).toContain("Sample workflow demonstrating the timeline");
+    expect(markup).toContain('data-v2-workflow-phase="1"');
+    expect(markup).toContain('data-v2-workflow-phase="2"');
+    expect(markup).toContain("Geography Query");
+    expect(markup).toContain("Haiku 4.5");
+    expect(markup).toContain("9.1k tok");
+    expect(markup).toContain("1/3 agents");
+    expect(markup).toContain('data-v2-workflow-agent-status="running"');
+    expect(markup).toContain('data-v2-workflow-agent-status="queued"');
+    expect(markup).toContain("Discovery: Astronomy Query");
+    expect(markup).toContain('aria-label="Open sample-workflow"');
+    expect(markup).not.toContain('data-v2-workflow-result-disclosure="true"');
+    expect(markup).not.toContain("Work Log");
+  });
+
+  it("renders a completed dynamic workflow with its result disclosure", async () => {
+    const { MessagesTimeline } = await import("./MessagesTimeline");
+    const markup = renderToStaticMarkup(
+      <MessagesTimeline
+        {...buildProps()}
+        timelineEntries={[
+          {
+            id: "workflow-complete",
+            kind: "event",
+            createdAt: MESSAGE_CREATED_AT,
+            projectedItem: {
+              position: 0,
+              visibility: "local",
+              sourceThreadId: "thread-1",
+              sourceItemId: "workflow-complete",
+              item: {
+                id: "workflow-complete",
+                threadId: "thread-1",
+                runId: "run-1",
+                nodeId: "node-workflow-1",
+                providerThreadId: "provider-thread-1",
+                providerTurnId: "provider-turn-1",
+                nativeItemRef: null,
+                parentItemId: null,
+                ordinal: 1,
+                status: "completed",
+                title: "Sample workflow demonstrating the timeline",
+                startedAt: null,
+                completedAt: null,
+                updatedAt: {},
+                type: "workflow",
+                subagentId: "node-workflow-1",
+                driver: "claudeAgent",
+                providerInstanceId: "claudeAgent",
+                childThreadId: null,
+                workflowName: "sample-workflow",
+                description: "Sample workflow demonstrating the timeline",
+                phases: [{ index: 1, title: "Discovery" }],
+                agents: [
+                  {
+                    index: 1,
+                    label: "Geography Query",
+                    phaseIndex: 1,
+                    phaseTitle: "Discovery",
+                    model: "claude-haiku-4-5-20251001",
+                    status: "completed",
+                  },
+                ],
+                progress: "Discovery: Geography Query",
+                result: 'Dynamic workflow "Sample workflow" completed',
+                totalTokens: 27200,
+                durationMs: 8100,
+              },
+            } as never,
+          },
+        ]}
+      />,
+    );
+
+    expect(markup).toContain('data-v2-item-type="workflow"');
+    expect(markup).toContain('data-v2-workflow-status="completed"');
+    expect(markup).toContain('data-v2-workflow-result-disclosure="true"');
+    expect(markup).toContain("Dynamic workflow &quot;Sample workflow&quot; completed");
+    // A settled workflow hides the live progress strip.
+    expect(markup).not.toContain('data-v2-workflow-progress="true"');
+  });
+
   it("discloses the full Codex subagent result without projecting child events", async () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
     const markup = renderToStaticMarkup(

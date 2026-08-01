@@ -25,6 +25,7 @@ import { getProviderInstanceEntry } from "../../providerInstances";
 import { formatShortTimestamp } from "../../timestampFormat";
 import { PROVIDER_ICON_BY_PROVIDER, getTriggerDisplayModelName } from "./providerIconUtils";
 import { TimelineSystemDivider } from "./TimelineSystemDivider";
+import { V2WorkflowCard } from "./V2WorkflowCard";
 
 const LIFECYCLE_TYPES = new Set<OrchestrationV2TurnItem["type"]>([
   "run_interrupt_request",
@@ -35,6 +36,7 @@ const LIFECYCLE_TYPES = new Set<OrchestrationV2TurnItem["type"]>([
   "fork",
   "subagent",
   "thread_created",
+  "workflow",
 ]);
 
 export function isV2LifecycleItem(item: OrchestrationV2TurnItem): boolean {
@@ -237,6 +239,9 @@ export function V2LifecycleRow(props: {
         onOpenThread={props.onOpenThread}
       />
     );
+  }
+  if (item.type === "workflow") {
+    return <V2WorkflowCard item={item} onOpenThread={props.onOpenThread} />;
   }
   if (item.type === "subagent") {
     const streamedResult = item.result?.trim() ? item.result : null;

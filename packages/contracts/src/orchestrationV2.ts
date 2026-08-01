@@ -806,6 +806,61 @@ export const OrchestrationV2WebSearchResult = Schema.Struct({
 });
 export type OrchestrationV2WebSearchResult = typeof OrchestrationV2WebSearchResult.Type;
 
+export const OrchestrationV2WorkflowPhase = Schema.Struct({
+  index: PositiveInt,
+  title: TrimmedNonEmptyString,
+  detail: Schema.optional(Schema.String),
+});
+export type OrchestrationV2WorkflowPhase = typeof OrchestrationV2WorkflowPhase.Type;
+
+export const OrchestrationV2WorkflowAgentStatus = Schema.Literals([
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+export type OrchestrationV2WorkflowAgentStatus = typeof OrchestrationV2WorkflowAgentStatus.Type;
+
+export const OrchestrationV2WorkflowAgent = Schema.Struct({
+  index: PositiveInt,
+  label: TrimmedNonEmptyString,
+  phaseIndex: Schema.NullOr(PositiveInt),
+  phaseTitle: Schema.NullOr(Schema.String),
+  // Provider-native model id the agent runs on; null until the runtime
+  // reports it.
+  model: Schema.NullOr(Schema.String),
+  status: OrchestrationV2WorkflowAgentStatus,
+  promptPreview: Schema.optional(Schema.String),
+  resultPreview: Schema.optional(Schema.String),
+  totalTokens: Schema.optional(NonNegativeInt),
+  toolUses: Schema.optional(NonNegativeInt),
+  durationMs: Schema.optional(NonNegativeInt),
+});
+export type OrchestrationV2WorkflowAgent = typeof OrchestrationV2WorkflowAgent.Type;
+
+// Dynamic-workflow turn item fields shared between the domain and JSON
+// unions. The item mirrors the subagent item's linkage fields (subagentId,
+// childThreadId) so run-owned lifecycle tracking and cascade terminalization
+// treat workflows like any other background task.
+const OrchestrationV2WorkflowItemFields = {
+  type: Schema.Literal("workflow"),
+  subagentId: NodeId,
+  driver: ProviderDriverKind,
+  providerInstanceId: ProviderInstanceId,
+  childThreadId: Schema.NullOr(ThreadId),
+  workflowName: TrimmedNonEmptyString,
+  description: Schema.String,
+  script: Schema.optional(Schema.String),
+  phases: Schema.Array(OrchestrationV2WorkflowPhase),
+  agents: Schema.Array(OrchestrationV2WorkflowAgent),
+  progress: Schema.optional(Schema.String),
+  result: Schema.NullOr(Schema.String),
+  totalTokens: Schema.optional(NonNegativeInt),
+  toolUses: Schema.optional(NonNegativeInt),
+  durationMs: Schema.optional(NonNegativeInt),
+} as const;
+
 export const OrchestrationV2TurnItem = Schema.Union([
   Schema.Struct({
     ...OrchestrationV2TurnItemBaseFields,
@@ -992,6 +1047,10 @@ export const OrchestrationV2TurnItem = Schema.Union([
     toolName: Schema.NullOr(TrimmedNonEmptyString),
     input: Schema.Unknown,
     output: Schema.optional(Schema.Unknown),
+  }),
+  Schema.Struct({
+    ...OrchestrationV2TurnItemBaseFields,
+    ...OrchestrationV2WorkflowItemFields,
   }),
 ]);
 export type OrchestrationV2TurnItem = typeof OrchestrationV2TurnItem.Type;
@@ -1651,6 +1710,10 @@ export const OrchestrationV2TurnItemJson = Schema.Union([
     toolName: Schema.NullOr(TrimmedNonEmptyString),
     input: Schema.Unknown,
     output: Schema.optional(Schema.Unknown),
+  }),
+  Schema.Struct({
+    ...OrchestrationV2TurnItemJsonBaseFields,
+    ...OrchestrationV2WorkflowItemFields,
   }),
 ]);
 export type OrchestrationV2TurnItemJson = typeof OrchestrationV2TurnItemJson.Type;

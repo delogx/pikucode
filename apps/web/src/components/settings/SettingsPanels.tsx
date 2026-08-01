@@ -32,6 +32,7 @@ import {
 } from "@piku/client-runtime/state/runtime";
 import {
   DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
+  DEFAULT_SIDEBAR_ARTWORK,
   DEFAULT_UNIFIED_SETTINGS,
   type EnvironmentIdentificationMode,
   MAX_GLASS_OPACITY,
@@ -59,6 +60,7 @@ import { ProviderModelPicker } from "../chat/ProviderModelPicker";
 import { TraitsPicker } from "../chat/TraitsPicker";
 import {
   resolveEnvironmentIdentificationPillLabel,
+  resolveStageArtworkId,
   useEnvironmentStageLabel,
 } from "../SidebarStageBackdrop";
 import { isElectron } from "../../env";
@@ -116,6 +118,7 @@ import {
   type ProviderUpdateCandidate,
 } from "../ProviderUpdateLaunchNotification.logic";
 import { ProviderInstanceCard } from "./ProviderInstanceCard";
+import { StageArtworkPicker } from "./StageArtworkPicker";
 import { DRIVER_OPTIONS, getDriverOption } from "./providerDriverMeta";
 import {
   backgroundActivitySharedPolicySettings,
@@ -478,6 +481,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode
         ? ["Environment identification"]
         : []),
+      ...(settings.sidebarArtwork !== DEFAULT_UNIFIED_SETTINGS.sidebarArtwork
+        ? ["Sidebar artwork"]
+        : []),
       ...(settings.timestampFormat !== DEFAULT_UNIFIED_SETTINGS.timestampFormat
         ? ["Time format"]
         : []),
@@ -532,6 +538,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.newWorktreesStartFromOrigin,
       settings.diffIgnoreWhitespace,
       settings.environmentIdentificationMode,
+      settings.sidebarArtwork,
       settings.glassOpacity,
       settings.enableAssistantStreaming,
       settings.enableProviderUpdateChecks,
@@ -559,6 +566,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       wordWrap: DEFAULT_UNIFIED_SETTINGS.wordWrap,
       diffIgnoreWhitespace: DEFAULT_UNIFIED_SETTINGS.diffIgnoreWhitespace,
       environmentIdentificationMode: DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode,
+      sidebarArtwork: DEFAULT_UNIFIED_SETTINGS.sidebarArtwork,
       glassOpacity: DEFAULT_UNIFIED_SETTINGS.glassOpacity,
       sidebarThreadPreviewCount: DEFAULT_UNIFIED_SETTINGS.sidebarThreadPreviewCount,
       sidebarProjectGroupingMode: DEFAULT_UNIFIED_SETTINGS.sidebarProjectGroupingMode,
@@ -946,6 +954,33 @@ export function AppearanceSettingsPanel() {
             </div>
           }
         />
+
+        <SettingsRow
+          title="Sidebar artwork"
+          description={
+            showEnvironmentIdentification
+              ? "Fills the sidebar header and the send button. Auto follows this environment's channel artwork."
+              : "Fills the sidebar header and the send button. Auto keeps the sidebar plain on this channel."
+          }
+          resetAction={
+            settings.sidebarArtwork !== DEFAULT_SIDEBAR_ARTWORK ? (
+              <SettingResetButton
+                label="sidebar artwork"
+                onClick={() => updateSettings({ sidebarArtwork: DEFAULT_SIDEBAR_ARTWORK })}
+              />
+            ) : null
+          }
+        >
+          <StageArtworkPicker
+            autoResolvedArtworkId={resolveStageArtworkId({
+              stageLabel: environmentStageLabel,
+              sidebarArtwork: "auto",
+              environmentIdentificationMode: settings.environmentIdentificationMode,
+            })}
+            onValueChange={(sidebarArtwork) => updateSettings({ sidebarArtwork })}
+            value={settings.sidebarArtwork}
+          />
+        </SettingsRow>
 
         {showEnvironmentIdentification ? (
           <SettingsRow

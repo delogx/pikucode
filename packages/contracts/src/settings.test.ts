@@ -67,6 +67,32 @@ describe("ClientSettings environment identification", () => {
   });
 });
 
+describe("ClientSettings sidebar artwork", () => {
+  it("defaults to auto and accepts each artwork", () => {
+    expect(decodeClientSettings({}).sidebarArtwork).toBe("auto");
+
+    for (const artwork of [
+      "auto",
+      "night-sky",
+      "blueprint",
+      "aurora",
+      "dusk-tide",
+      "midnight-city",
+      "misty-pines",
+      "nebula",
+      "neon-horizon",
+    ] as const) {
+      expect(decodeClientSettings({ sidebarArtwork: artwork }).sidebarArtwork).toBe(artwork);
+      expect(decodeClientSettingsPatch({ sidebarArtwork: artwork }).sidebarArtwork).toBe(artwork);
+    }
+  });
+
+  it("rejects unknown artwork ids", () => {
+    expect(() => decodeClientSettings({ sidebarArtwork: "starfield" })).toThrow();
+    expect(() => decodeClientSettingsPatch({ sidebarArtwork: "starfield" })).toThrow();
+  });
+});
+
 describe("ClientSettings sidebar v2", () => {
   it("defaults the beta off with a three-day auto-settle threshold", () => {
     const settings = decodeClientSettings({});

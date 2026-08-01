@@ -180,5 +180,11 @@ export function applyOrchestrationV2ProjectionEvent(
     case "context-transfer.created":
     case "context-transfer.updated":
       return { ...base, contextTransfers: upsertEntity(base.contextTransfers, event.payload) };
+    case "goal.updated":
+      return { ...base, goals: upsertEntity(base.goals, event.payload) };
+    // Raw turn usage feeds the server-side goal tracker; clients only render
+    // the folded goal.updated result.
+    case "turn-usage.updated":
+      return base;
   }
 }

@@ -62,6 +62,7 @@ export function makeThreadProjectionFixture(): OrchestrationV2ThreadProjection {
     checkpoints: [],
     contextHandoffs: [],
     contextTransfers: [],
+    goals: [],
     visibleTurnItems: [],
     updatedAt: now,
   };

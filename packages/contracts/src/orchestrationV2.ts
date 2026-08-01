@@ -9,6 +9,7 @@ import {
   ContextHandoffId,
   ContextTransferId,
   EventId,
+  GoalId,
   IsoDateTime,
   MessageId,
   NodeId,
@@ -667,6 +668,71 @@ export const OrchestrationV2PlanArtifact = Schema.Union([
 ]);
 export type OrchestrationV2PlanArtifact = typeof OrchestrationV2PlanArtifact.Type;
 
+/**
+ * Mirrors the Codex app-server `thread/goal` status vocabulary so native goal
+ * updates map 1:1 and Claude threads share the same lifecycle.
+ */
+export const OrchestrationV2ThreadGoalStatus = Schema.Literals([
+  "active",
+  "paused",
+  "blocked",
+  "usageLimited",
+  "budgetLimited",
+  "complete",
+]);
+export type OrchestrationV2ThreadGoalStatus = typeof OrchestrationV2ThreadGoalStatus.Type;
+
+export const OrchestrationV2TokenUsageBreakdown = Schema.Struct({
+  inputTokens: NonNegativeInt,
+  cachedInputTokens: NonNegativeInt,
+  outputTokens: NonNegativeInt,
+  reasoningOutputTokens: NonNegativeInt,
+  totalTokens: NonNegativeInt,
+});
+export type OrchestrationV2TokenUsageBreakdown = typeof OrchestrationV2TokenUsageBreakdown.Type;
+
+/** Token usage for one provider turn; `tokens` is cumulative within that turn. */
+export const OrchestrationV2ProviderTurnUsage = Schema.Struct({
+  id: ProviderTurnId,
+  threadId: ThreadId,
+  providerThreadId: ProviderThreadId,
+  tokens: OrchestrationV2TokenUsageBreakdown,
+  updatedAt: Schema.DateTimeUtc,
+});
+export type OrchestrationV2ProviderTurnUsage = typeof OrchestrationV2ProviderTurnUsage.Type;
+
+/**
+ * Accounting cursor for the provider turn currently charging the goal.
+ * `tokensAtStart` snapshots goal.tokensUsed when the turn began so cumulative
+ * per-turn usage folds without double counting; `startedAt` lets clients tick
+ * live elapsed time between goal updates.
+ */
+export const OrchestrationV2ThreadGoalActiveTurnRef = Schema.Struct({
+  providerTurnId: ProviderTurnId,
+  startedAt: Schema.DateTimeUtc,
+  tokensAtStart: NonNegativeInt,
+});
+export type OrchestrationV2ThreadGoalActiveTurnRef =
+  typeof OrchestrationV2ThreadGoalActiveTurnRef.Type;
+
+export const OrchestrationV2ThreadGoal = Schema.Struct({
+  id: GoalId,
+  threadId: ThreadId,
+  objective: TrimmedNonEmptyString,
+  status: OrchestrationV2ThreadGoalStatus,
+  /** Human-readable cause for the latest status transition, if any. */
+  statusReason: Schema.NullOr(Schema.String),
+  tokenBudget: Schema.NullOr(PositiveInt),
+  tokensUsed: NonNegativeInt,
+  timeUsedSeconds: NonNegativeInt,
+  activeTurn: Schema.NullOr(OrchestrationV2ThreadGoalActiveTurnRef),
+  createdAt: Schema.DateTimeUtc,
+  updatedAt: Schema.DateTimeUtc,
+  completedAt: Schema.NullOr(Schema.DateTimeUtc),
+  clearedAt: Schema.NullOr(Schema.DateTimeUtc),
+});
+export type OrchestrationV2ThreadGoal = typeof OrchestrationV2ThreadGoal.Type;
+
 export const OrchestrationV2CheckpointFileSummary = Schema.Struct({
   path: TrimmedNonEmptyString,
   kind: TrimmedNonEmptyString,
@@ -1157,6 +1223,16 @@ export const OrchestrationV2DomainEvent = Schema.Union([
     type: Schema.Literal("context-transfer.updated"),
     payload: OrchestrationV2ContextTransfer,
   }),
+  Schema.Struct({
+    ...OrchestrationV2EventBase.fields,
+    type: Schema.Literal("goal.updated"),
+    payload: OrchestrationV2ThreadGoal,
+  }),
+  Schema.Struct({
+    ...OrchestrationV2EventBase.fields,
+    type: Schema.Literal("turn-usage.updated"),
+    payload: OrchestrationV2ProviderTurnUsage,
+  }),
 ]);
 export type OrchestrationV2DomainEvent = typeof OrchestrationV2DomainEvent.Type;
 
@@ -1177,6 +1253,7 @@ export const OrchestrationV2ThreadProjection = Schema.Struct({
   checkpoints: Schema.Array(OrchestrationV2Checkpoint),
   contextHandoffs: Schema.Array(OrchestrationV2ContextHandoff),
   contextTransfers: Schema.Array(OrchestrationV2ContextTransfer),
+  goals: Schema.Array(OrchestrationV2ThreadGoal),
   visibleTurnItems: Schema.Array(OrchestrationV2ProjectedTurnItem),
   updatedAt: Schema.DateTimeUtc,
 });
@@ -1435,6 +1512,32 @@ export const OrchestrationV2ProviderTurnJson = OrchestrationV2ProviderTurn.mapFi
 }));
 export type OrchestrationV2ProviderTurnJson = typeof OrchestrationV2ProviderTurnJson.Type;
 
+export const OrchestrationV2ProviderTurnUsageJson = OrchestrationV2ProviderTurnUsage.mapFields(
+  (fields) => ({
+    ...fields,
+    updatedAt: Schema.DateTimeUtcFromString,
+  }),
+);
+export type OrchestrationV2ProviderTurnUsageJson = typeof OrchestrationV2ProviderTurnUsageJson.Type;
+
+export const OrchestrationV2ThreadGoalActiveTurnRefJson =
+  OrchestrationV2ThreadGoalActiveTurnRef.mapFields((fields) => ({
+    ...fields,
+    startedAt: Schema.DateTimeUtcFromString,
+  }));
+export type OrchestrationV2ThreadGoalActiveTurnRefJson =
+  typeof OrchestrationV2ThreadGoalActiveTurnRefJson.Type;
+
+export const OrchestrationV2ThreadGoalJson = OrchestrationV2ThreadGoal.mapFields((fields) => ({
+  ...fields,
+  activeTurn: Schema.NullOr(OrchestrationV2ThreadGoalActiveTurnRefJson),
+  createdAt: Schema.DateTimeUtcFromString,
+  updatedAt: Schema.DateTimeUtcFromString,
+  completedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
+  clearedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
+}));
+export type OrchestrationV2ThreadGoalJson = typeof OrchestrationV2ThreadGoalJson.Type;
+
 export const OrchestrationV2RuntimeRequestJson = OrchestrationV2RuntimeRequest.mapFields(
   (fields) => ({
     ...fields,
@@ -1682,6 +1785,7 @@ export const OrchestrationV2ThreadProjectionJson = OrchestrationV2ThreadProjecti
     checkpoints: Schema.Array(OrchestrationV2CheckpointJson),
     contextHandoffs: Schema.Array(OrchestrationV2ContextHandoffJson),
     contextTransfers: Schema.Array(OrchestrationV2ContextTransferJson),
+    goals: Schema.Array(OrchestrationV2ThreadGoalJson),
     visibleTurnItems: Schema.Array(OrchestrationV2ProjectedTurnItemJson),
     updatedAt: Schema.DateTimeUtcFromString,
   }),
@@ -1870,6 +1974,16 @@ export const OrchestrationV2DomainEventJson = Schema.Union([
     ...OrchestrationV2JsonEventBaseFields,
     type: Schema.Literal("context-transfer.updated"),
     payload: OrchestrationV2ContextTransferJson,
+  }),
+  Schema.Struct({
+    ...OrchestrationV2JsonEventBaseFields,
+    type: Schema.Literal("goal.updated"),
+    payload: OrchestrationV2ThreadGoalJson,
+  }),
+  Schema.Struct({
+    ...OrchestrationV2JsonEventBaseFields,
+    type: Schema.Literal("turn-usage.updated"),
+    payload: OrchestrationV2ProviderTurnUsageJson,
   }),
 ]);
 export type OrchestrationV2DomainEventJson = typeof OrchestrationV2DomainEventJson.Type;
@@ -2129,6 +2243,22 @@ export const OrchestrationV2Command = Schema.Union([
     commandId: CommandId,
     threadId: ThreadId,
     modelSelection: ModelSelection,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("thread.goal.set"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    /** Required when no active goal exists; optional to retitle an existing goal. */
+    objective: Schema.optional(TrimmedNonEmptyString),
+    /** Explicit null removes an existing budget; omitted leaves it unchanged. */
+    tokenBudget: Schema.optional(Schema.NullOr(PositiveInt)),
+    status: Schema.optional(OrchestrationV2ThreadGoalStatus),
+    statusReason: Schema.optional(Schema.NullOr(Schema.String)),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("thread.goal.clear"),
+    commandId: CommandId,
+    threadId: ThreadId,
   }),
 ]);
 export type OrchestrationV2Command = typeof OrchestrationV2Command.Type;

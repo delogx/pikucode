@@ -104,6 +104,7 @@ it.effect("keeps a fork awake when its source thread is snoozed", () =>
       checkpoints: [],
       contextHandoffs: [],
       contextTransfers: [],
+      goals: [],
       visibleTurnItems: [],
       updatedAt: snoozedAt,
     };

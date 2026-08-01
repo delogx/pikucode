@@ -34,6 +34,7 @@ import {
   type OrchestrationV2ProviderTurn,
   type OrchestrationV2RuntimeRequest,
   type OrchestrationV2Subagent,
+  type OrchestrationV2TokenUsageBreakdown,
   type OrchestrationV2TurnItem,
   type OrchestrationV2WebSearchResult,
   type ProviderApprovalDecision,
@@ -801,6 +802,41 @@ function resultTextFromSdkMessage(
   return {
     nativeItemId: message.uuid,
     text: message.result,
+  };
+}
+
+interface ClaudeSdkUsageLike {
+  readonly input_tokens?: number | null;
+  readonly output_tokens?: number | null;
+  readonly cache_creation_input_tokens?: number | null;
+  readonly cache_read_input_tokens?: number | null;
+}
+
+function claudeUsageBreakdown(usage: ClaudeSdkUsageLike): OrchestrationV2TokenUsageBreakdown {
+  const count = (value: number | null | undefined) => Math.max(0, Math.trunc(value ?? 0));
+  const inputTokens = count(usage.input_tokens) + count(usage.cache_creation_input_tokens);
+  const cachedInputTokens = count(usage.cache_read_input_tokens);
+  const outputTokens = count(usage.output_tokens);
+  return {
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    // The SDK folds thinking tokens into output_tokens; no separate signal.
+    reasoningOutputTokens: 0,
+    totalTokens: inputTokens + cachedInputTokens + outputTokens,
+  };
+}
+
+function addTokenUsageBreakdowns(
+  left: OrchestrationV2TokenUsageBreakdown,
+  right: OrchestrationV2TokenUsageBreakdown,
+): OrchestrationV2TokenUsageBreakdown {
+  return {
+    inputTokens: left.inputTokens + right.inputTokens,
+    cachedInputTokens: left.cachedInputTokens + right.cachedInputTokens,
+    outputTokens: left.outputTokens + right.outputTokens,
+    reasoningOutputTokens: left.reasoningOutputTokens + right.reasoningOutputTokens,
+    totalTokens: left.totalTokens + right.totalTokens,
   };
 }
 
@@ -2047,6 +2083,9 @@ export function makeClaudeAdapterV2(
         const providerRetries = yield* Ref.make(
           new Map<OrchestrationV2ProviderTurn["id"], ActiveClaudeProviderRetry>(),
         );
+        const turnTokenUsage = yield* Ref.make(
+          new Map<OrchestrationV2ProviderTurn["id"], OrchestrationV2TokenUsageBreakdown>(),
+        );
         const pendingRuntimeRequests = yield* Ref.make(
           new Map<string, PendingClaudeRuntimeRequest>(),
         );
@@ -2081,6 +2120,38 @@ export function makeClaudeAdapterV2(
 
         const emitProviderEvent = (event: ProviderAdapterV2Event) =>
           Queue.offer(events, event).pipe(Effect.asVoid);
+
+        // Per-turn token accounting for goal tracking: assistant messages add
+        // each API call's usage as the turn streams; the terminal result
+        // overwrites the estimate with the turn's authoritative totals.
+        const emitTurnTokenUsage = Effect.fnUntraced(function* (
+          context: ActiveClaudeTurnContext,
+          breakdown: OrchestrationV2TokenUsageBreakdown,
+          mode: "accumulate" | "settle",
+        ) {
+          const tokens = yield* Ref.modify(turnTokenUsage, (current) => {
+            const existing = current.get(context.providerTurnId);
+            const next =
+              mode === "accumulate" && existing !== undefined
+                ? addTokenUsageBreakdowns(existing, breakdown)
+                : breakdown;
+            const updated = new Map(current);
+            if (mode === "settle") {
+              updated.delete(context.providerTurnId);
+            } else {
+              updated.set(context.providerTurnId, next);
+            }
+            return [next, updated] as const;
+          });
+          yield* emitProviderEvent({
+            type: "token_usage.updated",
+            driver: CLAUDE_PROVIDER,
+            threadId: context.input.threadId,
+            providerThreadId: context.input.providerThread.id,
+            providerTurnId: context.providerTurnId,
+            tokens,
+          });
+        });
 
         const resolveItemOrdinal = Effect.fnUntraced(function* (
           context: ActiveClaudeTurnContext,
@@ -3233,6 +3304,11 @@ export function makeClaudeAdapterV2(
 
           if (message.type === "assistant") {
             context.nativeMessageCursor = message.uuid;
+            yield* emitTurnTokenUsage(
+              context,
+              claudeUsageBreakdown(message.message.usage ?? {}),
+              "accumulate",
+            );
           }
 
           if (message.type === "system" && message.subtype === "api_retry") {
@@ -3554,6 +3630,7 @@ export function makeClaudeAdapterV2(
           }
 
           if (message.type === "result") {
+            yield* emitTurnTokenUsage(context, claudeUsageBreakdown(message.usage), "settle");
             const completedAt = yield* DateTime.now;
             const interrupted = (yield* Ref.get(interruptedTurns)).has(context.providerTurnId);
             const wasSteered = (yield* Ref.get(steeredTurns)).has(context.providerTurnId);

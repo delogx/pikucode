@@ -230,6 +230,22 @@ export const layer: Layer.Layer<ProviderEventIngestorV2, never, EventSinkV2 | Id
                   nodeId: input.event.plan.nodeId,
                 }),
               ];
+            case "token_usage.updated": {
+              const updatedAt = yield* DateTime.now;
+              return [
+                yield* makeDomainEvent(input, {
+                  type: "turn-usage.updated",
+                  ...(input.event.threadId === undefined ? {} : { threadId: input.event.threadId }),
+                  payload: {
+                    id: input.event.providerTurnId,
+                    threadId: input.event.threadId ?? input.threadId,
+                    providerThreadId: input.event.providerThreadId,
+                    tokens: input.event.tokens,
+                    updatedAt,
+                  },
+                }),
+              ];
+            }
             case "turn.terminal":
               if (input.event.status !== "failed") {
                 return [];

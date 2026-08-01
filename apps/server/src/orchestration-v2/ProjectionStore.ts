@@ -25,6 +25,7 @@ import {
   OrchestrationV2RunJson as OrchestrationV2RunJsonSchema,
   OrchestrationV2RuntimeRequestJson as OrchestrationV2RuntimeRequestJsonSchema,
   OrchestrationV2SubagentJson as OrchestrationV2SubagentJsonSchema,
+  OrchestrationV2ThreadGoalJson as OrchestrationV2ThreadGoalJsonSchema,
   OrchestrationV2TurnItemJson as OrchestrationV2TurnItemJsonSchema,
   RunId,
   ThreadId,
@@ -124,7 +125,7 @@ export class ProjectionStoreV2 extends Context.Service<ProjectionStoreV2, Projec
   "piku/orchestration-v2/ProjectionStore/ProjectionStoreV2",
 ) {}
 
-export const ORCHESTRATION_V2_PROJECTION_SCHEMA_VERSION = 2;
+export const ORCHESTRATION_V2_PROJECTION_SCHEMA_VERSION = 3;
 
 function upsertById<T extends { readonly id: string }>(items: ReadonlyArray<T>, next: T): Array<T> {
   const index = items.findIndex((item) => item.id === next.id);
@@ -157,6 +158,7 @@ export function emptyProjection(
     checkpoints: [],
     contextHandoffs: [],
     contextTransfers: [],
+    goals: [],
     visibleTurnItems: [],
     updatedAt: event.occurredAt,
   };
@@ -296,6 +298,15 @@ export function applyToProjection(
         ...base,
         contextTransfers: upsertById(base.contextTransfers, event.payload),
       };
+    case "goal.updated":
+      return {
+        ...base,
+        goals: upsertById(base.goals, event.payload),
+      };
+    // Turn usage feeds the goal tracker, which folds it into goal.updated
+    // events; the projection itself keeps no per-turn usage rows.
+    case "turn-usage.updated":
+      return base;
   }
 }
 
@@ -472,6 +483,9 @@ const encodeContextHandoffPayload = Schema.encodeEffect(
 const encodeContextTransferPayload = Schema.encodeEffect(
   Schema.fromJsonString(OrchestrationV2ContextTransferJsonSchema),
 );
+const encodeThreadGoalPayload = Schema.encodeEffect(
+  Schema.fromJsonString(OrchestrationV2ThreadGoalJsonSchema),
+);
 
 const decodeThreadPayload = (json: string) =>
   Schema.decodeUnknownEffect(Schema.fromJsonString(OrchestrationV2AppThreadJsonSchema))(json);
@@ -507,6 +521,8 @@ const decodeContextHandoffPayload = (json: string) =>
   Schema.decodeUnknownEffect(Schema.fromJsonString(OrchestrationV2ContextHandoffJsonSchema))(json);
 const decodeContextTransferPayload = (json: string) =>
   Schema.decodeUnknownEffect(Schema.fromJsonString(OrchestrationV2ContextTransferJsonSchema))(json);
+const decodeThreadGoalPayload = (json: string) =>
+  Schema.decodeUnknownEffect(Schema.fromJsonString(OrchestrationV2ThreadGoalJsonSchema))(json);
 
 function parseEncodedPayload(json: string): Record<string, unknown> {
   return JSON.parse(json) as Record<string, unknown>;
@@ -1801,6 +1817,43 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             `;
             break;
           }
+          case "goal.updated": {
+            const payloadJson = yield* encodeThreadGoalPayload(event.payload);
+            const payload = parseEncodedPayload(payloadJson);
+            yield* sql`
+              INSERT INTO orchestration_v2_projection_goals (
+                goal_id,
+                thread_id,
+                status,
+                created_at,
+                updated_at,
+                cleared_at,
+                payload_json
+              )
+              VALUES (
+                ${event.payload.id},
+                ${event.payload.threadId},
+                ${event.payload.status},
+                ${stringField(payload, "createdAt")},
+                ${stringField(payload, "updatedAt")},
+                ${nullableStringField(payload, "clearedAt")},
+                ${payloadJson}
+              )
+              ON CONFLICT(goal_id)
+              DO UPDATE SET
+                thread_id = excluded.thread_id,
+                status = excluded.status,
+                created_at = excluded.created_at,
+                updated_at = excluded.updated_at,
+                cleared_at = excluded.cleared_at,
+                payload_json = excluded.payload_json
+            `;
+            break;
+          }
+          // Turn usage is folded into goal.updated by the goal tracker; the
+          // SQL projection keeps no per-turn usage rows.
+          case "turn-usage.updated":
+            break;
         }
 
         if (
@@ -1880,6 +1933,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           checkpointRows,
           contextHandoffRows,
           contextTransferRows,
+          goalRows,
         ] = yield* Effect.all([
           decodeThreadPayload(threadRow.payload_json),
           sql<PayloadRow>`
@@ -1985,6 +2039,12 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
             WHERE source_thread_id = ${threadId} OR target_thread_id = ${threadId}
             ORDER BY rowid ASC
           `,
+          sql<PayloadRow>`
+            SELECT payload_json
+            FROM orchestration_v2_projection_goals
+            WHERE thread_id = ${threadId}
+            ORDER BY created_at ASC, goal_id ASC
+          `,
         ]);
 
         const [
@@ -2003,6 +2063,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           checkpoints,
           contextHandoffs,
           contextTransfers,
+          goals,
         ] = yield* Effect.all([
           decodeRows(decodeRunPayload, threadId)(runRows),
           decodeRows(decodeRunAttemptPayload, threadId)(attemptRows),
@@ -2019,6 +2080,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           decodeRows(decodeCheckpointPayload, threadId)(checkpointRows),
           decodeRows(decodeContextHandoffPayload, threadId)(contextHandoffRows),
           decodeRows(decodeContextTransferPayload, threadId)(contextTransferRows),
+          decodeRows(decodeThreadGoalPayload, threadId)(goalRows),
         ]);
         const orderedMessages = sortMessagesByTurnItemOrder(messages, turnItems);
         const projection = {
@@ -2038,6 +2100,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           checkpoints,
           contextHandoffs,
           contextTransfers,
+          goals,
           visibleTurnItems: [],
           updatedAt: thread.updatedAt,
         } satisfies OrchestrationV2ThreadProjection;

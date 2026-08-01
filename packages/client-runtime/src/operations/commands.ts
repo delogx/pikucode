@@ -8,6 +8,7 @@ import {
   type ModelSelection,
   type OrchestrationV2Command,
   type OrchestrationV2CreationSource,
+  type OrchestrationV2ThreadGoalStatus,
   type PlanId,
   type ProjectId,
   type ProjectScript,
@@ -108,6 +109,17 @@ export interface SetThreadRuntimeModeInput extends ThreadCommandInput {
 export interface SetThreadInteractionModeInput extends ThreadCommandInput {
   readonly interactionMode: ProviderInteractionMode;
 }
+
+export interface SetThreadGoalInput extends ThreadCommandInput {
+  /** Required when starting a goal; omitted for status/budget updates. */
+  readonly objective?: string;
+  /** Explicit null removes an existing budget; omitted leaves it unchanged. */
+  readonly tokenBudget?: number | null;
+  readonly status?: OrchestrationV2ThreadGoalStatus;
+  readonly statusReason?: string | null;
+}
+
+export type ClearThreadGoalInput = ThreadCommandInput;
 
 interface StartThreadBootstrap {
   readonly createThread?: {
@@ -484,6 +496,30 @@ export const setThreadInteractionMode = Effect.fn("EnvironmentCommands.setThread
     });
   },
 );
+
+export const setThreadGoal = Effect.fn("EnvironmentCommands.setThreadGoal")(function* (
+  input: SetThreadGoalInput,
+) {
+  return yield* dispatch({
+    type: "thread.goal.set",
+    commandId: yield* allocateCommandId(input),
+    threadId: input.threadId,
+    ...(input.objective === undefined ? {} : { objective: input.objective }),
+    ...(input.tokenBudget === undefined ? {} : { tokenBudget: input.tokenBudget }),
+    ...(input.status === undefined ? {} : { status: input.status }),
+    ...(input.statusReason === undefined ? {} : { statusReason: input.statusReason }),
+  });
+});
+
+export const clearThreadGoal = Effect.fn("EnvironmentCommands.clearThreadGoal")(function* (
+  input: ClearThreadGoalInput,
+) {
+  return yield* dispatch({
+    type: "thread.goal.clear",
+    commandId: yield* allocateCommandId(input),
+    threadId: input.threadId,
+  });
+});
 
 export const startThreadTurn = Effect.fn("EnvironmentCommands.startThreadTurn")(function* (
   input: StartThreadTurnInput,

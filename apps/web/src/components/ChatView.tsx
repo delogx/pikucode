@@ -83,6 +83,12 @@ import {
   parseStandaloneComposerSlashCommand,
 } from "../composer-logic";
 import {
+  activeThreadGoal,
+  parseThreadGoalSlashCommand,
+  type ThreadGoalSlashCommand,
+} from "@piku/shared/threadGoal";
+import { GoalStatusCard, type GoalCardAction } from "./chat/GoalStatusCard";
+import {
   derivePendingApprovals,
   derivePendingUserInputs,
   derivePhase,
@@ -1213,6 +1219,12 @@ function ChatViewContent(props: ChatViewProps) {
   const setThreadInteractionMode = useAtomCommand(threadEnvironment.setInteractionMode, {
     reportFailure: false,
   });
+  const setThreadGoalCommand = useAtomCommand(threadEnvironment.setGoal, {
+    reportFailure: false,
+  });
+  const clearThreadGoalCommand = useAtomCommand(threadEnvironment.clearGoal, {
+    reportFailure: false,
+  });
   const startThreadTurn = useAtomCommand(threadEnvironment.startTurn, { reportFailure: false });
   const interruptThreadTurn = useAtomCommand(threadEnvironment.interruptTurn, {
     reportFailure: false,
@@ -2297,6 +2309,10 @@ function ChatViewContent(props: ChatViewProps) {
         threadId: activeThread?.id ?? null,
       }),
     [activeLatestRun, activeThread?.id, latestRunSettled, threadPlanCatalog],
+  );
+  const activeGoal = useMemo(
+    () => (serverProjection === null ? null : activeThreadGoal(serverProjection.goals)),
+    [serverProjection],
   );
   const activePlan = useMemo(
     () => deriveActivePlanState(serverProjection, activeLatestRun?.runId ?? undefined),
@@ -4927,6 +4943,84 @@ function ChatViewContent(props: ChatViewProps) {
     ],
   );
 
+  const runGoalSlashCommand = useCallback(
+    async (command: ThreadGoalSlashCommand) => {
+      if (!activeThread || !isServerThread) {
+        toastManager.add(
+          stackedThreadToast({
+            type: "warning",
+            title: "Send a message first",
+            description: "Goals attach to a running thread. Start the thread, then set a goal.",
+          }),
+        );
+        return;
+      }
+      const threadId = activeThread.id;
+      if (command.action === "show") {
+        if (activeGoal === null) {
+          toastManager.add(
+            stackedThreadToast({
+              type: "info",
+              title: "No goal set",
+              description: "Set one with /goal <objective>, optionally adding --budget 50k.",
+            }),
+          );
+        }
+        return;
+      }
+      const result =
+        command.action === "clear"
+          ? await clearThreadGoalCommand({ environmentId, input: { threadId } })
+          : await setThreadGoalCommand({
+              environmentId,
+              input: {
+                threadId,
+                ...(command.action === "set"
+                  ? {
+                      objective: command.objective,
+                      ...(command.tokenBudget === null ? {} : { tokenBudget: command.tokenBudget }),
+                    }
+                  : {
+                      status:
+                        command.action === "pause"
+                          ? ("paused" as const)
+                          : command.action === "resume"
+                            ? ("active" as const)
+                            : ("complete" as const),
+                    }),
+              },
+            });
+      if (result._tag === "Failure") {
+        toastManager.add(
+          stackedThreadToast({
+            type: "error",
+            title: "Goal update failed",
+            description:
+              command.action === "set"
+                ? "The goal could not be set. Try again once the thread is idle."
+                : "There is no active goal to update. Set one with /goal <objective>.",
+          }),
+        );
+      }
+    },
+    [
+      activeGoal,
+      activeThread,
+      clearThreadGoalCommand,
+      environmentId,
+      isServerThread,
+      setThreadGoalCommand,
+      toastManager,
+    ],
+  );
+
+  const onGoalCardAction = useCallback(
+    (action: GoalCardAction) => {
+      void runGoalSlashCommand({ action });
+    },
+    [runGoalSlashCommand],
+  );
+
   const onSend = async (
     e?: { preventDefault: () => void },
     dispatchMode: ComposerDispatchMode = "auto",
@@ -5000,6 +5094,22 @@ function ChatViewContent(props: ChatViewProps) {
       promptRef.current = "";
       clearComposerDraftContent(composerDraftTarget);
       composerRef.current?.resetCursorState();
+      return;
+    }
+    const goalSlashCommand =
+      standaloneSlashCommand === null &&
+      composerImages.length === 0 &&
+      sendableComposerTerminalContexts.length === 0 &&
+      composerElementContexts.length === 0 &&
+      composerPreviewAnnotations.length === 0 &&
+      composerReviewComments.length === 0
+        ? parseThreadGoalSlashCommand(trimmed)
+        : null;
+    if (goalSlashCommand) {
+      promptRef.current = "";
+      clearComposerDraftContent(composerDraftTarget);
+      composerRef.current?.resetCursorState();
+      await runGoalSlashCommand(goalSlashCommand);
       return;
     }
     if (!hasSendableContent) {
@@ -6380,6 +6490,13 @@ function ChatViewContent(props: ChatViewProps) {
                   ) : (
                     <ComposerBannerStack className="relative z-0" items={composerBannerItems} />
                   )}
+                  {isServerThread && activeThread && activeGoal !== null ? (
+                    <GoalStatusCard
+                      goal={activeGoal}
+                      onAction={onGoalCardAction}
+                      className="relative z-0 mx-auto mb-2 w-full max-w-3xl"
+                    />
+                  ) : null}
                   {isServerThread && activeThread ? (
                     <QueuedRunsControl
                       environmentId={activeThread.environmentId}

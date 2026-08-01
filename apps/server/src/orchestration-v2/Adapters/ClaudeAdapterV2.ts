@@ -1987,6 +1987,15 @@ interface ActiveClaudeSubagent {
   progressStartedAt: DateTime.Utc | null;
   resultItemOrdinal: number | null;
   /**
+   * Provider linkage of the turn that last projected this subagent, kept so
+   * progress arriving after the root turn settles (no active turn context)
+   * can re-emit the turn item with consistent references.
+   */
+  route: {
+    readonly providerThreadId: ProviderThreadId;
+    readonly providerTurnId: OrchestrationV2ProviderTurn["id"];
+  };
+  /**
    * Dynamic-workflow display state, set when the task is a `local_workflow`
    * run. Such tasks keep the full subagent lifecycle (node, wake, child
    * thread) but project a `workflow` turn item instead of a `subagent` one.
@@ -2306,6 +2315,69 @@ export function makeClaudeAdapterV2(
           });
         });
 
+        // Builds the parent-thread turn item for a subagent registry entry:
+        // a rich `workflow` item for dynamic-workflow tasks, the plain
+        // `subagent` item otherwise. Everything needed lives on the entry so
+        // both the live turn path and the settled-progress path share it.
+        const subagentTurnItemPayload = (
+          subagent: ActiveClaudeSubagent,
+        ): OrchestrationV2TurnItem => {
+          const task = subagent.task;
+          const base = {
+            id: subagent.turnItemId,
+            threadId: task.threadId,
+            runId: task.runId,
+            nodeId: task.id,
+            providerThreadId: subagent.route.providerThreadId,
+            providerTurnId: subagent.route.providerTurnId,
+            nativeItemRef: task.nativeTaskRef,
+            parentItemId: null,
+            ordinal: subagent.turnItemOrdinal,
+            status: task.status,
+            title: task.title,
+            startedAt: task.startedAt,
+            completedAt: task.completedAt,
+            updatedAt: task.updatedAt,
+          } as const;
+          if (subagent.workflow === null) {
+            return {
+              ...base,
+              type: "subagent",
+              subagentId: task.id,
+              origin: task.origin,
+              driver: task.driver,
+              providerInstanceId: task.providerInstanceId,
+              childThreadId: task.childThreadId,
+              prompt: task.prompt,
+              ...(task.progress === undefined ? {} : { progress: task.progress }),
+              result: task.result,
+            };
+          }
+          const workflow = subagent.workflow;
+          return {
+            ...base,
+            type: "workflow",
+            subagentId: task.id,
+            driver: task.driver,
+            providerInstanceId: task.providerInstanceId,
+            childThreadId: task.childThreadId,
+            workflowName: workflow.name,
+            description: workflow.description,
+            ...(workflow.script === null ? {} : { script: workflow.script }),
+            phases: workflow.phases,
+            agents: workflow.agents,
+            ...(task.progress === undefined ? {} : { progress: task.progress }),
+            result: task.result,
+            ...(workflow.usage.totalTokens === undefined
+              ? {}
+              : { totalTokens: workflow.usage.totalTokens }),
+            ...(workflow.usage.toolUses === undefined ? {} : { toolUses: workflow.usage.toolUses }),
+            ...(workflow.usage.durationMs === undefined
+              ? {}
+              : { durationMs: workflow.usage.durationMs }),
+          };
+        };
+
         const updateClaudeSubagentNode = Effect.fnUntraced(function* (input: {
           readonly context: ActiveClaudeTurnContext;
           readonly taskId: string;
@@ -2539,6 +2611,10 @@ export function makeClaudeAdapterV2(
             progressItemOrdinal: existingSubagent?.progressItemOrdinal ?? null,
             progressStartedAt: existingSubagent?.progressStartedAt ?? null,
             resultItemOrdinal: existingSubagent?.resultItemOrdinal ?? null,
+            route: {
+              providerThreadId: input.context.input.providerThread.id,
+              providerTurnId: input.context.providerTurnId,
+            },
             workflow: nextWorkflow,
           } satisfies ActiveClaudeSubagent;
           input.context.subagentsByTaskId.set(input.taskId, subagent);
@@ -2682,63 +2758,10 @@ export function makeClaudeAdapterV2(
             driver: CLAUDE_PROVIDER,
             subagent: task,
           });
-          const turnItemBase = {
-            id: subagent.turnItemId,
-            threadId: task.threadId,
-            runId: task.runId,
-            nodeId: task.id,
-            providerThreadId: input.context.input.providerThread.id,
-            providerTurnId: input.context.providerTurnId,
-            nativeItemRef: task.nativeTaskRef,
-            parentItemId: null,
-            ordinal: subagent.turnItemOrdinal,
-            status: task.status,
-            title: task.title,
-            startedAt: task.startedAt,
-            completedAt: task.completedAt,
-            updatedAt: task.updatedAt,
-          } as const;
           yield* emitProviderEvent({
             type: "turn_item.updated",
             driver: CLAUDE_PROVIDER,
-            turnItem:
-              nextWorkflow === null
-                ? {
-                    ...turnItemBase,
-                    type: "subagent",
-                    subagentId: task.id,
-                    origin: task.origin,
-                    driver: task.driver,
-                    providerInstanceId: task.providerInstanceId,
-                    childThreadId: task.childThreadId,
-                    prompt: task.prompt,
-                    ...(task.progress === undefined ? {} : { progress: task.progress }),
-                    result: task.result,
-                  }
-                : {
-                    ...turnItemBase,
-                    type: "workflow",
-                    subagentId: task.id,
-                    driver: task.driver,
-                    providerInstanceId: task.providerInstanceId,
-                    childThreadId: task.childThreadId,
-                    workflowName: nextWorkflow.name,
-                    description: nextWorkflow.description,
-                    ...(nextWorkflow.script === null ? {} : { script: nextWorkflow.script }),
-                    phases: nextWorkflow.phases,
-                    agents: nextWorkflow.agents,
-                    ...(task.progress === undefined ? {} : { progress: task.progress }),
-                    result: task.result,
-                    ...(nextWorkflow.usage.totalTokens === undefined
-                      ? {}
-                      : { totalTokens: nextWorkflow.usage.totalTokens }),
-                    ...(nextWorkflow.usage.toolUses === undefined
-                      ? {}
-                      : { toolUses: nextWorkflow.usage.toolUses }),
-                    ...(nextWorkflow.usage.durationMs === undefined
-                      ? {}
-                      : { durationMs: nextWorkflow.usage.durationMs }),
-                  },
+            turnItem: subagentTurnItemPayload(subagent),
           });
 
           const progress = task.progress?.trim();
@@ -3249,11 +3272,89 @@ export function makeClaudeAdapterV2(
             return [true, updated] as const;
           });
 
+        // Progress for a still-running background task that arrives after the
+        // root turn settled (no active turn context). The registry entry has
+        // everything needed to re-project the row, so live workflow/subagent
+        // progress keeps flowing instead of freezing until the wake turn.
+        // Progress is transient by design: it is applied, never buffered.
+        const applySettledSubagentProgress = Effect.fnUntraced(function* (
+          message: Extract<SDKMessage, { type: "system"; subtype: "task_progress" }>,
+        ) {
+          const registered = (yield* Ref.get(sessionSubagentsByTaskId)).get(message.task_id);
+          if (registered === undefined || registered.task.status !== "running") {
+            return;
+          }
+          const progress = message.description.trim();
+          const workflowProgress = parseClaudeWorkflowProgress(
+            Reflect.get(message, "workflow_progress"),
+          );
+          const workflowUsage = parseClaudeWorkflowUsage(message.usage);
+          if (progress.length === 0 && workflowProgress === null && workflowUsage === null) {
+            return;
+          }
+          const now = yield* DateTime.now;
+          const priorWorkflow = registered.workflow;
+          const nextWorkflow =
+            priorWorkflow === null
+              ? null
+              : {
+                  ...priorWorkflow,
+                  ...(workflowProgress === null
+                    ? {}
+                    : {
+                        phases: mergeClaudeWorkflowPhases({
+                          metaPhases: priorWorkflow.metaPhases,
+                          wirePhases: workflowProgress.phases,
+                        }),
+                        agents: workflowProgress.agents,
+                      }),
+                  ...(workflowUsage === null
+                    ? {}
+                    : { usage: { ...priorWorkflow.usage, ...workflowUsage } }),
+                };
+          const updated: ActiveClaudeSubagent = {
+            ...registered,
+            task: {
+              ...registered.task,
+              ...(progress.length > 0 ? { progress } : {}),
+              updatedAt: now,
+            },
+            workflow: nextWorkflow,
+          };
+          // Apply atomically against the entry this update was computed from:
+          // a concurrent terminalization (wake notification on another fiber)
+          // must not be clobbered by late progress.
+          const stored = yield* Ref.modify(sessionSubagentsByTaskId, (current) => {
+            const existing = current.get(message.task_id);
+            if (existing !== registered || existing.task.status !== "running") {
+              return [false, current] as const;
+            }
+            return [true, new Map(current).set(message.task_id, updated)] as const;
+          });
+          if (!stored) {
+            return;
+          }
+          yield* emitProviderEvent({
+            type: "subagent.updated",
+            driver: CLAUDE_PROVIDER,
+            subagent: updated.task,
+          });
+          yield* emitProviderEvent({
+            type: "turn_item.updated",
+            driver: CLAUDE_PROVIDER,
+            turnItem: subagentTurnItemPayload(updated),
+          });
+        });
+
         const bufferWakeMessage = Effect.fnUntraced(function* (wakeInput: {
           readonly nativeThreadId: string;
           readonly message: SDKMessage;
         }) {
           const message = wakeInput.message;
+          if (message.type === "system" && message.subtype === "task_progress") {
+            yield* applySettledSubagentProgress(message);
+            return;
+          }
           const isNotification =
             message.type === "system" && message.subtype === "task_notification";
           // Only notifications for tracked tasks count as wake evidence: a

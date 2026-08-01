@@ -40,7 +40,7 @@ const TERMINAL_AGENT_STATUSES = new Set<OrchestrationV2WorkflowAgent["status"]>(
  * rows; unrecognized ids pass through untouched.
  */
 export function workflowAgentModelLabel(model: string): string {
-  const match = /^claude-([a-z]+)-(\d+(?:-\d+)*)/u.exec(model);
+  const match = /^claude-([a-z]+)-(\d+(?:-\d+)*?)(?:-\d{8})?(?:\[|$)/u.exec(model);
   if (match?.[1] === undefined || match[2] === undefined) {
     return model;
   }

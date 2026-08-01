@@ -3159,6 +3159,74 @@ return null
         yield* awaitUntil(() => harness.terminalEvents().length === 1, "root turn terminal");
         assert.isTrue(yield* harness.hasPendingBackgroundWork);
 
+        // Progress that arrives after the root turn settled still projects
+        // live: the settled path re-emits the workflow item from the session
+        // registry instead of dropping the frame.
+        yield* Queue.offer(
+          harness.sdkMessages,
+          claudeSdkFrame({
+            type: "system",
+            subtype: "task_progress",
+            task_id: WORKFLOW_TASK_ID,
+            tool_use_id: WORKFLOW_TOOL_USE_ID,
+            description: "Summarize: Synthesis",
+            usage: { total_tokens: 18_145, tool_uses: 0, duration_ms: 2613 },
+            last_tool_name: "Synthesis",
+            summary: "Tiny two-phase demo workflow",
+            workflow_progress: [
+              { type: "workflow_phase", index: 1, title: "Gather" },
+              { type: "workflow_phase", index: 2, title: "Summarize" },
+              {
+                type: "workflow_agent",
+                index: 1,
+                label: "Color",
+                phaseIndex: 1,
+                phaseTitle: "Gather",
+                model: "claude-haiku-4-5-20251001",
+                state: "done",
+                tokens: 9072,
+                toolCalls: 0,
+                durationMs: 1283,
+                resultPreview: "blue",
+              },
+              {
+                type: "workflow_agent",
+                index: 2,
+                label: "Number",
+                phaseIndex: 1,
+                phaseTitle: "Gather",
+                model: "claude-haiku-4-5-20251001",
+                state: "done",
+                tokens: 9073,
+                toolCalls: 0,
+                durationMs: 1536,
+                resultPreview: "four",
+              },
+              {
+                type: "workflow_agent",
+                index: 3,
+                label: "Synthesis",
+                phaseIndex: 2,
+                phaseTitle: "Summarize",
+                model: "claude-haiku-4-5-20251001",
+                state: "start",
+              },
+            ],
+            uuid: "00000000-0000-4000-8000-000000000606",
+            session_id: WAKE_NATIVE_SESSION,
+          }),
+        );
+        yield* awaitUntil(
+          () => (workflowItems().at(-1)?.agents.length ?? 0) === 3,
+          "post-settle workflow progress projected",
+        );
+        const settledProgressItem = workflowItems().at(-1);
+        assert.equal(settledProgressItem?.status, "running");
+        assert.equal(settledProgressItem?.progress, "Summarize: Synthesis");
+        assert.equal(settledProgressItem?.totalTokens, 18_145);
+        assert.equal(settledProgressItem?.agents[2]?.label, "Synthesis");
+        assert.equal(settledProgressItem?.agents[2]?.status, "running");
+
         // The workflow completion wakes the parent thread; the buffered
         // notification replays into the continuation turn and terminalizes
         // the workflow item there.
@@ -3204,10 +3272,10 @@ return null
         assert.equal(terminalItem?.durationMs, 3778);
         // The agent whose final snapshot was missed folds to the outcome the
         // completed workflow implies.
-        assert.equal(terminalItem?.agents[1]?.status, "completed");
-        // The replayed item keeps the phase/agent state accumulated before
-        // settle.
-        assert.lengthOf(terminalItem?.agents ?? [], 2);
+        assert.equal(terminalItem?.agents[2]?.status, "completed");
+        // The replayed item keeps the phase/agent state accumulated across
+        // the live turn and the settled window.
+        assert.lengthOf(terminalItem?.agents ?? [], 3);
         assert.lengthOf(terminalItem?.phases ?? [], 2);
         yield* awaitUntil(() => harness.terminalEvents().length === 2, "continuation terminal");
         assert.isFalse(yield* harness.hasPendingBackgroundWork);

@@ -20,6 +20,7 @@
  *
  * @module provider/builtInDrivers
  */
+import { AcpRegistryDriver, type AcpRegistryDriverEnv } from "./Drivers/AcpRegistryDriver.ts";
 import { ClaudeDriver, type ClaudeDriverEnv } from "./Drivers/ClaudeDriver.ts";
 import { CodexDriver, type CodexDriverEnv } from "./Drivers/CodexDriver.ts";
 import type { AnyProviderDriver } from "./ProviderDriver.ts";
@@ -29,7 +30,7 @@ import type { AnyProviderDriver } from "./ProviderDriver.ts";
  * driver. The registry layer declares `R = BuiltInDriversEnv`; the runtime
  * layer must provide every service in this union.
  */
-export type BuiltInDriversEnv = ClaudeDriverEnv | CodexDriverEnv;
+export type BuiltInDriversEnv = AcpRegistryDriverEnv | ClaudeDriverEnv | CodexDriverEnv;
 
 /**
  * Ordered list of built-in drivers. Order matters only for tie-breaking in
@@ -39,4 +40,5 @@ export type BuiltInDriversEnv = ClaudeDriverEnv | CodexDriverEnv;
 export const BUILT_IN_DRIVERS: ReadonlyArray<AnyProviderDriver<BuiltInDriversEnv>> = [
   CodexDriver,
   ClaudeDriver,
+  AcpRegistryDriver,
 ];

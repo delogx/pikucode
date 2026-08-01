@@ -94,6 +94,8 @@ describe("DesktopEnvironment", () => {
       assert.equal(environment.logDir, "/tmp/piku/userdata/logs");
       assert.equal(environment.browserArtifactsDir, "/tmp/piku/userdata/browser-artifacts");
       assert.equal(environment.serverSettingsPath, "/tmp/piku/userdata/settings.json");
+      assert.equal(environment.userDataDirName, "pikucode");
+      assert.equal(environment.legacyUserDataDirName, "Piku Code (Alpha)");
     }),
   );
 

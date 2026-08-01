@@ -1,10 +1,14 @@
-import type { OrchestrationEvent, OrchestrationReadModel, ThreadId } from "@piku/contracts";
+import type { ThreadId } from "@piku/contracts";
+import type {
+  OrchestrationEvent,
+  OrchestrationReadModel,
+} from "@piku/contracts/legacy-orchestration";
 import {
   OrchestrationCheckpointSummary,
   OrchestrationMessage,
   OrchestrationSession,
   OrchestrationThread,
-} from "@piku/contracts";
+} from "@piku/contracts/legacy-orchestration";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 

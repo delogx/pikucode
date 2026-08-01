@@ -16,7 +16,7 @@ const prereleaseAnnouncement = {
   version: "1.2.4-nightly.20260501.17",
   tag: "v1.2.4-nightly.20260501.17",
   releaseUrl: new URL(
-    "https://github.com/t3dotgg/piku-code/releases/tag/v1.2.4-nightly.20260501.17",
+    "https://github.com/pikudotgg/piku-code/releases/tag/v1.2.4-nightly.20260501.17",
   ),
   timestamp: "2026-05-01T01:41:00.000Z",
 } as const;
@@ -32,7 +32,7 @@ it("builds a prerelease Discord announcement for nightly subscribers", () => {
       version: "1.2.4-nightly.20260501.17",
       tag: "v1.2.4-nightly.20260501.17",
       releaseUrl: new URL(
-        "https://github.com/t3dotgg/piku-code/releases/tag/v1.2.4-nightly.20260501.17",
+        "https://github.com/pikudotgg/piku-code/releases/tag/v1.2.4-nightly.20260501.17",
       ),
       timestamp: "2026-05-01T01:41:00.000Z",
     }),
@@ -45,7 +45,7 @@ it("builds a prerelease Discord announcement for nightly subscribers", () => {
       embeds: [
         {
           title: "Piku Code Nightly 1.2.4-nightly.20260501.17 (abcdef123456)",
-          url: "https://github.com/t3dotgg/piku-code/releases/tag/v1.2.4-nightly.20260501.17",
+          url: "https://github.com/pikudotgg/piku-code/releases/tag/v1.2.4-nightly.20260501.17",
           description: "A new Piku Code prerelease is available for nightly testers.",
           color: 0x5865f2,
           fields: [

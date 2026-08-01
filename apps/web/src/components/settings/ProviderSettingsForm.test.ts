@@ -38,6 +38,18 @@ describe("ProviderSettingsForm helpers", () => {
     });
   });
 
+  it("exposes ACP Registry as an instance-only configurable driver", () => {
+    const acpRegistry = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("acpRegistry")];
+
+    expect(acpRegistry).toBeDefined();
+    expect(acpRegistry?.hasDefaultInstance).toBe(false);
+    expect(deriveProviderSettingsFields(acpRegistry!).map((field) => field.key)).toEqual([
+      "agentId",
+      "commandPath",
+      "authMethodId",
+    ]);
+  });
+
   it("preserves unknown config keys while omitting empty configurable fields", () => {
     const codex = DRIVER_OPTION_BY_VALUE[ProviderDriverKind.make("codex")];
     expect(codex).toBeDefined();

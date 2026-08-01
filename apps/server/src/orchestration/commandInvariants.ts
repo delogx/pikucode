@@ -1,11 +1,10 @@
+import type { ProjectId, ThreadId } from "@piku/contracts";
 import type {
   OrchestrationCommand,
   OrchestrationProject,
   OrchestrationReadModel,
   OrchestrationThread,
-  ProjectId,
-  ThreadId,
-} from "@piku/contracts";
+} from "@piku/contracts/legacy-orchestration";
 import { normalizeProjectPathForComparison } from "@piku/shared/path";
 import * as Effect from "effect/Effect";
 

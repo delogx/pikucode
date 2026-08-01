@@ -1,10 +1,8 @@
-import {
-  ApprovalRequestId,
-  type ChatAttachment,
-  type OrchestrationEvent,
-  type OrchestrationSessionStatus,
-  ThreadId,
-} from "@piku/contracts";
+import { ApprovalRequestId, type ChatAttachment, ThreadId } from "@piku/contracts";
+import type {
+  OrchestrationEvent,
+  OrchestrationSessionStatus,
+} from "@piku/contracts/legacy-orchestration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";

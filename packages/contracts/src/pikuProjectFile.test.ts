@@ -1,9 +1,11 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vite-plus/test";
 
-import { PikuProjectFile } from "./pikuProjectFile.ts";
+import { PikuProjectFile, type PikuProjectFile as PikuProjectFileType } from "./pikuProjectFile.ts";
 
-const decode = Schema.decodeUnknownSync(PikuProjectFile);
+const decode = Schema.decodeUnknownSync(PikuProjectFile as never) as (
+  input: unknown,
+) => PikuProjectFileType;
 
 describe("PikuProjectFile", () => {
   it("decodes a full project file", () => {

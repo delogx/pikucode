@@ -1,6 +1,11 @@
-import { ClaudeSettings, CodexSettings, ProviderDriverKind } from "@piku/contracts";
+import {
+  AcpRegistrySettings,
+  ClaudeSettings,
+  CodexSettings,
+  ProviderDriverKind,
+} from "@piku/contracts";
 import type * as Schema from "effect/Schema";
-import { ClaudeAI, type Icon, OpenAI } from "../Icons";
+import { ACPRegistryIcon, ClaudeAI, type Icon, OpenAI } from "../Icons";
 
 type ProviderSettingsSchema = {
   readonly fields: Readonly<Record<string, Schema.Top>>;
@@ -17,6 +22,9 @@ export interface ProviderClientDefinition {
   readonly label: string;
   readonly icon: Icon;
   readonly settingsSchema: ProviderSettingsSchema;
+  readonly environmentFields?: readonly ProviderEnvironmentFieldDefinition[];
+  /** Whether this driver has a built-in default instance backed by legacy settings. */
+  readonly hasDefaultInstance?: boolean;
   /**
    * Optional short label rendered as a `variant="warning"` badge next to
    * the instance title. Used to flag drivers that still ship under an
@@ -25,6 +33,14 @@ export interface ProviderClientDefinition {
    * built-in default or custom — advertises the same marker.
    */
   readonly badgeLabel?: string;
+}
+
+export interface ProviderEnvironmentFieldDefinition {
+  readonly name: string;
+  readonly label: string;
+  readonly description?: string;
+  readonly placeholder?: string;
+  readonly sensitive?: boolean;
 }
 
 export const PROVIDER_CLIENT_DEFINITIONS: readonly ProviderClientDefinition[] = [
@@ -39,6 +55,14 @@ export const PROVIDER_CLIENT_DEFINITIONS: readonly ProviderClientDefinition[] = 
     label: "Claude",
     icon: ClaudeAI,
     settingsSchema: ClaudeSettings,
+  },
+  {
+    value: ProviderDriverKind.make("acpRegistry"),
+    label: "ACP Registry",
+    icon: ACPRegistryIcon,
+    badgeLabel: "V2 Preview",
+    settingsSchema: AcpRegistrySettings,
+    hasDefaultInstance: false,
   },
 ];
 

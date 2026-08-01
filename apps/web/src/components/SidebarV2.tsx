@@ -78,7 +78,7 @@ import {
 } from "../sidebarProjectGrouping";
 import { legacyProjectCwdPreferenceKey, useUiStateStore } from "../uiStateStore";
 import { useThreadSelectionStore } from "../threadSelectionStore";
-import { useThreadActions } from "../hooks/useThreadActions";
+import { useMarkThreadUnread, useThreadActions } from "../hooks/useThreadActions";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { openCommandPalette } from "../commandPaletteBus";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
@@ -104,6 +104,7 @@ import { cn } from "~/lib/utils";
 import {
   buildBulkTitleRegenerationContextMenuItem,
   formatWorkingDurationLabel,
+  filterSidebarV2VisibleThreads,
   firstValidTimestampMs,
   hasUnseenCompletion,
   isTrailingDoubleClick,
@@ -111,9 +112,10 @@ import {
   resolveAdjacentThreadId,
   resolveSettledTimestamp,
   resolveSidebarV2Status,
+  resolveThreadLastVisitedAt,
   resolveWorkingStartedAt,
   shouldNavigateAfterProjectRemoval,
-  sortLogicalProjectsForSidebar,
+  sortSidebarV2ProjectGroups,
   sortSettledThreadsForSidebarV2,
   sortThreadsForSidebarV2,
 } from "./Sidebar.logic";
@@ -298,7 +300,7 @@ function SidebarV2ThreadTooltip({
             <div className="flex min-w-0 items-center gap-2">
               <ProviderInstanceIcon
                 driverKind={driverKind}
-                displayName={thread.session?.providerName ?? modelInstanceId}
+                displayName={thread.runtime?.providerName ?? modelInstanceId}
                 iconClassName="size-3 shrink-0 grayscale opacity-60"
               />
               <div className="min-w-0 truncate text-foreground/75">{modelLabel}</div>
@@ -315,7 +317,7 @@ function SidebarV2ThreadTooltip({
               </div>
             </div>
           ) : null}
-          {thread.session?.lastError ? (
+          {thread.runtime?.lastError ? (
             <div className="flex min-w-0 items-center gap-2 text-red-600 dark:text-red-400">
               <CircleAlertIcon className="size-3 shrink-0 stroke-current" />
               <div className="min-w-0 truncate">Error occurred</div>
@@ -442,7 +444,8 @@ const SidebarV2Row = memo(function SidebarV2Row(props: {
   );
   const threadKey = scopedThreadKey(threadRef);
   const isRegeneratingTitle = thread.titleRegeneration != null;
-  const lastVisitedAt = useUiStateStore((state) => state.threadLastVisitedAtById[threadKey]);
+  const localLastVisitedAt = useUiStateStore((state) => state.threadLastVisitedAtById[threadKey]);
+  const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
   const isSelected = useThreadSelectionStore((state) => state.selectedThreadKeys.has(threadKey));
   const openPrLink = useOpenPrLink();
   const runningTerminalIds = useThreadRunningTerminalIds({
@@ -546,7 +549,7 @@ const SidebarV2Row = memo(function SidebarV2Row(props: {
     onChangeRequestState(threadKey, prState);
   }, [onChangeRequestState, prState, threadKey]);
 
-  const modelInstanceId = thread.session?.providerInstanceId ?? thread.modelSelection.instanceId;
+  const modelInstanceId = thread.runtime?.providerInstanceId ?? thread.modelSelection.instanceId;
   const providerEntry = props.providerEntryByInstanceId.get(modelInstanceId) ?? null;
   const driverKind = providerEntry?.driverKind ?? null;
   const selectedModel = providerEntry?.models.find(
@@ -1039,7 +1042,7 @@ const SidebarV2Row = memo(function SidebarV2Row(props: {
                   <span className="inline-flex shrink-0 items-center opacity-60">
                     <ProviderInstanceIcon
                       driverKind={driverKind}
-                      displayName={thread.session?.providerName ?? modelInstanceId}
+                      displayName={thread.runtime?.providerName ?? modelInstanceId}
                       iconClassName="size-3.5"
                     />
                   </span>
@@ -1077,6 +1080,7 @@ export default function SidebarV2() {
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const { settleThread, unsettleThread, snoozeThread, unsnoozeThread, deleteThread } =
     useThreadActions();
+  const markThreadUnread = useMarkThreadUnread();
   const updateThreadMetadata = useAtomCommand(threadEnvironment.updateMetadata, {
     reportFailure: false,
   });
@@ -1139,7 +1143,6 @@ export default function SidebarV2() {
   const setSelectionAnchor = useThreadSelectionStore((s) => s.setAnchor);
   const toggleThreadSelection = useThreadSelectionStore((s) => s.toggleThread);
   const rangeSelectTo = useThreadSelectionStore((s) => s.rangeSelectTo);
-  const markThreadUnread = useUiStateStore((s) => s.markThreadUnread);
   const routeTarget = useParams({
     strict: false,
     select: (params) => resolveThreadRouteTarget(params),
@@ -1198,7 +1201,7 @@ export default function SidebarV2() {
     ],
   );
   const projectGroups = useMemo(
-    () => sortLogicalProjectsForSidebar(unsortedProjectGroups, threads, sidebarProjectSortOrder),
+    () => sortSidebarV2ProjectGroups(unsortedProjectGroups, threads, sidebarProjectSortOrder),
     [sidebarProjectSortOrder, threads, unsortedProjectGroups],
   );
   const serverProviders = useAtomValue(primaryServerProvidersAtom);
@@ -1461,12 +1464,7 @@ export default function SidebarV2() {
     // memo exactly at the next wake boundary.
     void snoozeWakeTick;
     const preciseNow = new Date().toISOString();
-    const visible = threads.filter(
-      (thread) =>
-        thread.archivedAt === null &&
-        (scopedProjectKeys === null ||
-          scopedProjectKeys.has(`${thread.environmentId}:${thread.projectId}`)),
-    );
+    const visible = filterSidebarV2VisibleThreads(threads, scopedProjectKeys);
     const active: EnvironmentThreadShell[] = [];
     const snoozed: EnvironmentThreadShell[] = [];
     const settled: EnvironmentThreadShell[] = [];
@@ -2028,7 +2026,8 @@ export default function SidebarV2() {
       if (clicked.value === "mark-unread") {
         for (const threadKey of threadKeys) {
           const thread = threadByKeyRef.current.get(threadKey);
-          markThreadUnread(threadKey, thread?.latestTurn?.completedAt);
+          if (!thread) continue;
+          markThreadUnread(scopeThreadRef(thread.environmentId, thread.id));
         }
         clearSelection();
         return;
@@ -2234,7 +2233,7 @@ export default function SidebarV2() {
             return;
           }
           case "mark-unread":
-            markThreadUnread(threadKey, thread.latestTurn?.completedAt);
+            markThreadUnread(threadRef);
             return;
           case "copy-path":
             if (!threadWorkspacePath) {

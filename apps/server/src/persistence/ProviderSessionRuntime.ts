@@ -9,13 +9,8 @@ import * as Struct from "effect/Struct";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as SqlSchema from "effect/unstable/sql/SqlSchema";
 
-import {
-  IsoDateTime,
-  ProviderInstanceId,
-  ProviderSessionRuntimeStatus,
-  RuntimeMode,
-  ThreadId,
-} from "@piku/contracts";
+import { IsoDateTime, ProviderInstanceId, RuntimeMode, ThreadId } from "@piku/contracts";
+import { ProviderSessionRuntimeStatus } from "@piku/contracts/legacy-orchestration";
 
 import {
   PersistenceDecodeError,

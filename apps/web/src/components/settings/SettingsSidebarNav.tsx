@@ -3,6 +3,7 @@ import {
   ArchiveIcon,
   ArrowLeftIcon,
   BotIcon,
+  CalendarClockIcon,
   FlaskConicalIcon,
   GitBranchIcon,
   KeyboardIcon,
@@ -31,6 +32,7 @@ export type SettingsSectionPath =
   | "/settings/appearance"
   | "/settings/keybindings"
   | "/settings/providers"
+  | "/settings/scheduled-tasks"
   | "/settings/source-control"
   | "/settings/connections"
   | "/settings/beta"
@@ -45,6 +47,7 @@ export const SETTINGS_NAV_ITEMS: ReadonlyArray<{
   { label: "Appearance", to: "/settings/appearance", icon: PaletteIcon },
   { label: "Keybindings", to: "/settings/keybindings", icon: KeyboardIcon },
   { label: "Providers", to: "/settings/providers", icon: BotIcon },
+  { label: "Schedule Tasks", to: "/settings/scheduled-tasks", icon: CalendarClockIcon },
   { label: "Source Control", to: "/settings/source-control", icon: GitBranchIcon },
   { label: "Connections", to: "/settings/connections", icon: Link2Icon },
   { label: "Beta", to: "/settings/beta", icon: FlaskConicalIcon },

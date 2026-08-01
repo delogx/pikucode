@@ -1,15 +1,15 @@
 # Architecture
 
-> For maintainers. Using T3 Code? See [docs/user](../user/).
+> For maintainers. Using Piku Code? See [docs/user](../user/).
 
-T3 Code is a server runtime that owns agent sessions, workspaces, and version control, plus clients
-(web, desktop, mobile) that talk to it over one authenticated Effect RPC WebSocket. The server is the
+Piku Code is a server runtime that owns agent sessions, workspaces, and version control, plus clients
+(web, desktop) that talk to it over one authenticated Effect RPC WebSocket. The server is the
 execution boundary: every provider process, terminal, git operation, and filesystem read happens
 there, never in the client.
 
 ```
 ┌────────────────────────────────────────────────┐
-│ Clients: apps/web, apps/desktop, apps/mobile   │
+│ Clients: apps/web, apps/desktop                │
 │ shared runtime: packages/client-runtime        │
 │  connection supervisor, RPC session, Atom state│
 └──────────────────┬─────────────────────────────┘
@@ -18,13 +18,12 @@ there, never in the client.
 ┌──────────────────▼─────────────────────────────┐
 │ apps/server                                    │
 │  orchestration engine (event-sourced)          │
-│  provider driver registry (5 built-in drivers) │
+│  provider driver registry (2 built-in drivers) │
 │  checkpointing, VCS, terminals, filesystem     │
 └──────────────────┬─────────────────────────────┘
                    │ per-driver transport
 ┌──────────────────▼─────────────────────────────┐
-│ Agent CLIs: Codex, Claude, Cursor, Grok,       │
-│ OpenCode                                       │
+│ Agent CLIs: Codex, Claude                      │
 └────────────────────────────────────────────────┘
 ```
 
@@ -51,12 +50,10 @@ to the connection supervisor.
 ## Shared client runtime
 
 `packages/client-runtime` holds every non-visual client concern: connection lifecycle,
-authentication, RPC, cached environment data, and domain state as Atom factories. Web and mobile
-compose it the same way (`apps/web/src/connection/runtime.ts` and
-`apps/mobile/src/connection/runtime.ts` mirror each other, differing only in platform-specific
-background-activity layers) and differ beyond that only in the platform layer they supply and the
-UI they build on top. React components never construct transports, retry loops,
-or RPC clients. See [connection-runtime.md](./connection-runtime.md).
+authentication, RPC, cached environment data, and domain state as Atom factories. Clients compose it
+the same way (`apps/web/src/connection/runtime.ts` supplies the web platform layer) and differ only
+in the platform layer they supply and the UI they build on top. React components never construct
+transports, retry loops, or RPC clients. See [connection-runtime.md](./connection-runtime.md).
 
 ## Orchestration is event-sourced
 
@@ -106,8 +103,8 @@ build production behavior on receipts.
 
 ## Provider drivers
 
-Five drivers ship built in, registered in [`builtInDrivers.ts`][drivers] as `BUILT_IN_DRIVERS`:
-Codex, Claude, Cursor, Grok, and OpenCode. A driver declares its kind and config schema and creates a
+Two drivers ship built in, registered in [`builtInDrivers.ts`][drivers] as `BUILT_IN_DRIVERS`:
+Codex and Claude. A driver declares its kind and config schema and creates a
 scoped adapter; `ProviderInstanceRegistry` owns live instances and `ProviderAdapterRegistry` resolves
 an instance to its adapter, so `ProviderService` routes session and turn operations without knowing
 which agent is behind them. See [providers.md](./providers.md).

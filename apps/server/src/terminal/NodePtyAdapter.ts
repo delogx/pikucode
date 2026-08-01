@@ -5,7 +5,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { HostProcessArchitecture, HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import { HostProcessArchitecture, HostProcessPlatform } from "@piku/shared/hostProcess";
 
 import * as PtyAdapter from "./PtyAdapter.ts";
 
@@ -51,8 +51,6 @@ const resolveNodePtySpawnHelperPath = Effect.gen(function* () {
 
 const ensureNodePtySpawnHelperExecutable = Effect.fn(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const platform = yield* HostProcessPlatform;
-  if (platform === "win32") return;
   if (didEnsureSpawnHelperExecutable) return;
 
   const helperPath = yield* resolveNodePtySpawnHelperPath;
@@ -148,7 +146,7 @@ export const make = Effect.fn("NodePtyAdapter.make")(function* (
             cols: input.cols,
             rows: input.rows,
             env: input.env,
-            name: platform === "win32" ? "xterm-color" : "xterm-256color",
+            name: "xterm-256color",
           }),
         catch: (cause) =>
           new PtyAdapter.PtySpawnError({

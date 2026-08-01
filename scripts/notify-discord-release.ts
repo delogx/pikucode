@@ -16,7 +16,7 @@ import {
   HttpClientResponse,
 } from "effect/unstable/http";
 
-export type DiscordReleaseTarget = "prerelease" | "latest";
+export type DiscordReleaseTarget = "prerelease";
 
 export interface DiscordReleaseAnnouncementOptions {
   readonly target: DiscordReleaseTarget;
@@ -47,12 +47,12 @@ interface DiscordWebhookPayload {
   }>;
 }
 
-const DISCORD_RELEASE_TARGETS = ["prerelease", "latest"] as const;
+const DISCORD_RELEASE_TARGETS = ["prerelease"] as const;
 const DiscordRoleIdSchema = Schema.String.check(Schema.isPattern(/^\d+$/));
 const DiscordWebhookUrl = Config.url("DISCORD_WEBHOOK_URL");
 
 const discordReleaseErrorContext = {
-  target: Schema.Literals(["prerelease", "latest"]),
+  target: Schema.Literals(["prerelease"]),
   releaseName: Schema.String,
   version: Schema.String,
   tag: Schema.String,
@@ -99,12 +99,10 @@ export const isDiscordReleaseAnnouncementError = Schema.is(DiscordReleaseAnnounc
 
 const targetLabels = {
   prerelease: "Prerelease",
-  latest: "Latest",
 } as const satisfies Record<DiscordReleaseTarget, string>;
 
 const targetColors = {
   prerelease: 0x5865f2,
-  latest: 0x2ecc71,
 } as const satisfies Record<DiscordReleaseTarget, number>;
 
 function describeWebhookUrl(webhookUrl: URL) {
@@ -135,10 +133,7 @@ export const buildDiscordReleaseAnnouncement = (
     {
       title: options.releaseName,
       url: options.releaseUrl.href,
-      description:
-        options.target === "prerelease"
-          ? "A new T3 Code prerelease is available for nightly testers."
-          : "A new T3 Code latest release is available.",
+      description: "A new Piku Code prerelease is available for nightly testers.",
       color: targetColors[options.target],
       fields: [
         {
@@ -222,7 +217,7 @@ export const notifyDiscordReleaseCommand = Command.make(
   "notify-discord-release",
   {
     target: Argument.choice("target", DISCORD_RELEASE_TARGETS).pipe(
-      Argument.withDescription("Discord announcement target: prerelease or latest."),
+      Argument.withDescription("Discord announcement target: prerelease."),
     ),
     roleId: Flag.string("role-id").pipe(
       Flag.withSchema(DiscordRoleIdSchema),
@@ -278,7 +273,7 @@ export const notifyDiscordReleaseCommand = Command.make(
       yield* postDiscordWebhook(webhookUrl, payload, announcement);
       yield* Effect.logInfo("discord release announcement completed");
     }),
-).pipe(Command.withDescription("Post a T3 Code release announcement to Discord."));
+).pipe(Command.withDescription("Post a Piku Code release announcement to Discord."));
 
 if (import.meta.main) {
   Command.run(notifyDiscordReleaseCommand, { version: "0.0.0" }).pipe(

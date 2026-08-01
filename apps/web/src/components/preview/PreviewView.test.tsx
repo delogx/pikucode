@@ -1,4 +1,4 @@
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ThreadId } from "@piku/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -77,7 +77,7 @@ vi.mock("~/previewStateStore", () => ({
 }));
 
 vi.mock("~/state/environments", () => ({
-  useEnvironment: () => ({ label: "WSL" }),
+  useEnvironment: () => ({ label: "Remote" }),
   useEnvironmentHttpBaseUrl: () => "http://172.25.85.75:3773",
 }));
 
@@ -223,7 +223,7 @@ describe("PreviewView navigation", () => {
       "https://localhost:8000/dashboard?mode=test#top",
     ],
     ["localhost:5173/app", "http://localhost:5173/app"],
-  ])("preserves a direct localhost URL in a WSL environment", async (submitted, expected) => {
+  ])("preserves a direct localhost URL in a remote environment", async (submitted, expected) => {
     renderToStaticMarkup(
       <PreviewView
         threadRef={{
@@ -250,7 +250,7 @@ describe("PreviewView navigation", () => {
     );
   });
 
-  it("maps an empty-state localhost server onto the WSL host", async () => {
+  it("maps an empty-state localhost server onto the remote host", async () => {
     mocks.showEmptyState = true;
     renderToStaticMarkup(
       <PreviewView

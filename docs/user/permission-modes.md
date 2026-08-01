@@ -16,9 +16,8 @@ wants to run or edit, and waits for approval. Work outside the workspace is rest
 without prompting; commands and anything else still stop for approval.
 
 **Auto**: routine actions proceed without you; risky ones still ask. How this is enforced depends
-on the provider: Codex delegates routine approvals to an AI reviewer, Claude uses its own auto
-permission mode, and providers without an equivalent (such as OpenCode) fall back to asking, like
-Supervised.
+on the provider: Codex delegates routine approvals to an AI reviewer, and Claude uses its own auto
+permission mode.
 
 **Full access**: allow commands and edits without prompts. The default. The agent runs
 unattended until it finishes or asks a question of its own.
@@ -43,6 +42,3 @@ translates the mode into its approval policy and sandbox level, so **Supervised*
 with prompting enabled and a restricted workspace while **Full access** disables both. The
 labels above describe what you get; the exact per-provider translation is internal and may
 change.
-
-Mobile offers the same four modes. It labels the first one **Approve actions** rather than
-**Supervised**.

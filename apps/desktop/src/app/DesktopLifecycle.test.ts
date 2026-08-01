@@ -14,13 +14,13 @@ import * as DesktopState from "./DesktopState.ts";
 import * as DesktopWindow from "../window/DesktopWindow.ts";
 
 describe("DesktopLifecycle", () => {
-  for (const platform of ["darwin", "win32", "linux"] satisfies ReadonlyArray<NodeJS.Platform>) {
+  for (const platform of ["darwin", "linux"] satisfies ReadonlyArray<NodeJS.Platform>) {
     it.effect(`lets the updater's quit event proceed on ${platform}`, () => {
       const appListeners = new Map<string, (...args: readonly unknown[]) => void>();
 
       const electronAppLayer = Layer.succeed(ElectronApp.ElectronApp, {
         metadata: Effect.die("unexpected metadata read"),
-        name: Effect.succeed("T3 Code"),
+        name: Effect.succeed("Piku Code"),
         whenReady: Effect.void,
         quit: Effect.void,
         exit: () => Effect.void,
@@ -28,7 +28,6 @@ describe("DesktopLifecycle", () => {
         setPath: () => Effect.void,
         setName: () => Effect.void,
         setAboutPanelOptions: () => Effect.void,
-        setAppUserModelId: () => Effect.void,
         getAppMetrics: Effect.succeed([]),
         isDefaultProtocolClient: () => Effect.succeed(false),
         setAsDefaultProtocolClient: () => Effect.succeed(true),
@@ -72,7 +71,6 @@ describe("DesktopLifecycle", () => {
         revealOrCreateMain: Effect.die("unexpected window creation"),
         activate: Effect.void,
         createMainIfBackendReady: Effect.void,
-        showConnectingSplash: Effect.void,
         handleBackendReady: () => Effect.void,
         handleBackendNotReady: Effect.void,
         flushMainWindowBounds: Effect.void,

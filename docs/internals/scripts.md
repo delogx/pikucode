@@ -1,14 +1,14 @@
 # Scripts
 
-> For maintainers. Using T3 Code? See [docs/user](../user/).
+> For maintainers. Using Piku Code? See [docs/user](../user/).
 
 ## First checkout
 
-T3 Code uses [Vite+](https://viteplus.dev/guide/). Install the global `vp` command, install
+Piku Code uses [Vite+](https://viteplus.dev/guide/). Install the global `vp` command, install
 dependencies, then start the dev stack:
 
 ```bash
-curl -fsSL https://vite.plus | bash   # Windows: irm https://vite.plus/ps1 | iex
+curl -fsSL https://vite.plus | bash
 vp i
 vp run dev
 ```
@@ -22,10 +22,8 @@ authenticated.
 ## Dev
 
 - `vp run dev`: Starts contracts, server, and web in watch mode.
-- `vp run dev --share`: Also publishes the web port over HTTPS on this machine's tailnet. The
-  startup pairing URL is built against the shared origin, and the mapping is removed on exit.
 - `vp run dev --browser`: Auto-opens a browser. Off by default. The dev runner writes
-  `T3CODE_NO_BROWSER` itself from this flag, so setting `T3CODE_NO_BROWSER=0` in your environment has
+  `PIKU_NO_BROWSER` itself from this flag, so setting `PIKU_NO_BROWSER=0` in your environment has
   no effect; use `--browser`.
 - `vp run dev:server`: Starts just the server. It runs on Node (`node --watch src/bin.ts`), so
   without Bun present it selects `NodePtyAdapter` and `NodeHttpServer`.
@@ -33,22 +31,22 @@ authenticated.
 - `vp run dev:desktop`: Starts the Electron shell against the dev server.
 - `vp run dev:marketing`: Starts the Astro marketing site.
 - Pass dev-runner flags directly after the root task name, for example:
-  `vp run dev --home-dir /tmp/t3code-dev`
+  `vp run dev --home-dir /tmp/piku-dev`
 
 ### Dev state directories
 
-- Dev commands run from a linked **git worktree** default to that worktree's gitignored `.t3`, even
-  when `T3CODE_HOME` is set, storing state in `<worktree>/.t3/userdata`. Pass `--home-dir <path>` to
+- Dev commands run from a linked **git worktree** default to that worktree's gitignored `.pikucode`, even
+  when `PIKU_HOME` is set, storing state in `<worktree>/.pikucode/userdata`. Pass `--home-dir <path>` to
   choose another isolated directory explicitly. Submodules are not worktrees and keep the normal
   precedence.
-- From the **main checkout**, dev commands implicitly use `~/.t3/dev`, keeping development state
-  separate from `~/.t3/userdata`. An explicit `--home-dir <path>` stores state under
+- From the **main checkout**, dev commands implicitly use `~/.pikucode/dev`, keeping development state
+  separate from `~/.pikucode/userdata`. An explicit `--home-dir <path>` stores state under
   `<path>/userdata`; the base directory remains available for caches, worktrees, and other shared
   data.
 
 ## Build, check, test
 
-- `vp run build`: Fans out over `apps/*`, `packages/*`, `oxlint-plugin-t3code`, and `scripts`.
+- `vp run build`: Fans out over `apps/*`, `packages/*`, `oxlint-plugin-pikucode`, and `scripts`.
   Workspaces that define a build task run one: desktop, marketing, server (which depends on web), and
   web. Shared packages are consumed and bundled transitively rather than built separately.
 - `vp run build:desktop`: Builds the desktop pipeline (desktop plus server).
@@ -57,46 +55,38 @@ authenticated.
   options, so workspace type checking runs separately.
 - `vp run typecheck`: Strict TypeScript checks for all packages.
 - `vp run test`: Runs workspace tests.
-- `vp run lint:mobile`: Mobile native static analysis (`scripts/mobile-native-static-check.ts`).
-- `node apps/server/scripts/t3-sqlite-state.ts <query|exec> --base-dir <path> ...`: Inspects or seeds
-  an isolated T3 SQLite database; writes create a private backup first.
+- `node apps/server/scripts/piku-sqlite-state.ts <query|exec> --base-dir <path> ...`: Inspects or seeds
+  an isolated Piku SQLite database; writes create a private backup first.
 
 ## Desktop artifacts
 
-- `vp run dist:desktop:artifact --platform <mac|linux|win> --target <target> --arch <arch>`: Builds a desktop artifact for a specific platform/target/arch.
+- `vp run dist:desktop:artifact --platform <mac|linux> --target <target> --arch <arch>`: Builds a desktop artifact for a specific platform/target/arch.
 - `vp run dist:desktop:dmg`: Builds a shareable macOS `.dmg` into `./release`. Architecture defaults
   to the host, so this produces an arm64 DMG on Apple Silicon. Use `dist:desktop:dmg:arm64` or
   `dist:desktop:dmg:x64`, or pass `--arch <arm64|x64|universal>`, to force one.
 - `vp run dist:desktop:linux`: Builds a Linux AppImage into `./release`.
-- `vp run dist:desktop:win`: Builds a Windows NSIS installer into `./release`. `:arm64` and `:x64`
-  variants exist.
 
 ### Desktop `.dmg` packaging notes
 
 - Default build is unsigned/not notarized for local sharing.
 - The DMG build uses `assets/prod/black-macos-1024.png` as the production app icon source.
-- Desktop production windows load the bundled UI from the `t3code://app/` root URL (not a
+- Desktop production windows load the bundled UI from the `piku://app/` root URL (not a
   `127.0.0.1` document URL, and not an explicit `index.html` path).
-- Desktop packaging includes `apps/server/dist` (the `t3` backend) and starts it on loopback with an
+- Desktop packaging includes `apps/server/dist` (the `piku` backend) and starts it on loopback with an
   auth token for WebSocket/API traffic.
 - Your tester can still open it on macOS by right-clicking the app and choosing **Open** on first
   launch.
 - To keep staging files for debugging package contents, run: `vp run dist:desktop:dmg --keep-stage`
 - To allow code-signing/notarization when configured in CI/secrets, add: `--signed`.
-- Signed macOS builds also require `T3CODE_APPLE_TEAM_ID` and
-  `T3CODE_MACOS_PROVISIONING_PROFILE`. The passkey RP domain is derived from
-  `T3CODE_CLERK_PUBLISHABLE_KEY` unless `T3CODE_CLERK_PASSKEY_RP_DOMAINS` overrides it.
-- Windows `--signed` uses Azure Trusted Signing and expects:
-  `AZURE_TRUSTED_SIGNING_ENDPOINT`, `AZURE_TRUSTED_SIGNING_ACCOUNT_NAME`,
-  `AZURE_TRUSTED_SIGNING_CERTIFICATE_PROFILE_NAME`, and `AZURE_TRUSTED_SIGNING_PUBLISHER_NAME`.
-- Azure authentication env vars are also required (for example service principal with secret):
-  `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`.
+- Signed macOS builds also require `PIKU_APPLE_TEAM_ID` and
+  `PIKU_MACOS_PROVISIONING_PROFILE`. The passkey RP domain is derived from
+  `PIKU_CLERK_PUBLISHABLE_KEY` unless `PIKU_CLERK_PASSKEY_RP_DOMAINS` overrides it.
 
 ## Browser development
 
 `dev` and `dev:web` leave `VITE_HTTP_URL` and `VITE_WS_URL` unset so the browser resolves the backend
 from `window.location.origin`. Vite proxies `/api`, `/ws`, `/oauth`, and `/.well-known` to the
-server, allowing the same bundle to work from localhost or a tailnet hostname.
+server, allowing the same bundle to work from localhost or any other hostname.
 
 ## Running multiple dev instances
 
@@ -104,12 +94,12 @@ Worktrees derive a preferred port offset from their path.
 
 - Default ports: server `13773`, web `5733`
 - Shifted ports: `base + offset`
-- Example: `T3CODE_DEV_INSTANCE=branch-a vp run dev:desktop`
+- Example: `PIKU_DEV_INSTANCE=branch-a vp run dev:desktop`
 
 Offset resolution, in order:
 
-1. `T3CODE_PORT_OFFSET`, which must be a non-negative integer. Negative values are rejected.
-2. `T3CODE_DEV_INSTANCE`. An all-digit value is used directly as the offset; any other non-empty
+1. `PIKU_PORT_OFFSET`, which must be a non-negative integer. Negative values are rejected.
+2. `PIKU_DEV_INSTANCE`. An all-digit value is used directly as the offset; any other non-empty
    value is hashed into one.
 3. The worktree path hash.
 

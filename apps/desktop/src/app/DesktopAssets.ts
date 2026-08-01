@@ -8,7 +8,6 @@ import * as Schema from "effect/Schema";
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 
 export interface DesktopIconPaths {
-  readonly ico: Option.Option<string>;
   readonly icns: Option.Option<string>;
   readonly png: Option.Option<string>;
 }
@@ -34,7 +33,7 @@ export class DesktopAssets extends Context.Service<
       fileName: string,
     ) => Effect.Effect<Option.Option<string>, DesktopAssetProbeError>;
   }
->()("@t3tools/desktop/app/DesktopAssets") {}
+>()("@piku/desktop/app/DesktopAssets") {}
 
 const resolveResourcePath = Effect.fn("desktop.assets.resolveResourcePath")(function* (
   fileName: string,
@@ -94,11 +93,11 @@ export const make = Effect.gen(function* () {
   const context = yield* Effect.context<
     FileSystem.FileSystem | DesktopEnvironment.DesktopEnvironment
   >();
-  const [ico, icns, png] = yield* Effect.all(
-    [resolveIconPath("ico"), resolveIconPath("icns"), resolveIconPath("png")] as const,
+  const [icns, png] = yield* Effect.all(
+    [resolveIconPath("icns"), resolveIconPath("png")] as const,
     { concurrency: "unbounded" },
   );
-  const iconPaths = { ico, icns, png } satisfies DesktopIconPaths;
+  const iconPaths = { icns, png } satisfies DesktopIconPaths;
 
   return DesktopAssets.of({
     iconPaths: Effect.succeed(iconPaths),

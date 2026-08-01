@@ -18,10 +18,10 @@ import type {
   ProjectSearchContentsResult,
   ProjectSearchEntriesInput,
   ProjectSearchEntriesResult,
-} from "@t3tools/contracts";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { isExplicitRelativePath, isWindowsAbsolutePath } from "@t3tools/shared/path";
-import { normalizeSearchQuery } from "@t3tools/shared/searchRanking";
+} from "@piku/contracts";
+import { HostProcessPlatform } from "@piku/shared/hostProcess";
+import { isExplicitRelativePath, isWindowsAbsolutePath } from "@piku/shared/path";
+import { normalizeSearchQuery } from "@piku/shared/searchRanking";
 
 import * as WorkspacePaths from "./WorkspacePaths.ts";
 import * as WorkspaceSearchIndex from "./WorkspaceSearchIndex.ts";
@@ -101,13 +101,13 @@ export class WorkspaceEntries extends Context.Service<
     ) => Effect.Effect<ProjectSearchContentsResult, WorkspaceEntriesError>;
     readonly refresh: (cwd: string) => Effect.Effect<void>;
   }
->()("t3/workspace/WorkspaceEntries") {}
+>()("piku/workspace/WorkspaceEntries") {}
 
 function expandHomePath(input: string, path: Path.Path): string {
   if (input === "~") {
     return NodeOS.homedir();
   }
-  if (input.startsWith("~/") || input.startsWith("~\\")) {
+  if (input.startsWith("~/")) {
     return path.join(NodeOS.homedir(), input.slice(2));
   }
   return input;
@@ -118,7 +118,7 @@ const resolveBrowseTarget = Effect.fn("WorkspaceEntries.resolveBrowseTarget")(fu
   path: Path.Path,
 ): Effect.fn.Return<string, WorkspaceEntriesBrowseError> {
   const platform = yield* HostProcessPlatform;
-  if (platform !== "win32" && isWindowsAbsolutePath(input.partialPath)) {
+  if (isWindowsAbsolutePath(input.partialPath)) {
     return yield* new WorkspaceEntriesWindowsPathUnsupportedError({
       cwd: input.cwd,
       partialPath: input.partialPath,

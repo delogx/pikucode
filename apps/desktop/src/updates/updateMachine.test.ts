@@ -23,7 +23,7 @@ describe("updateMachine", () => {
   it("clears transient errors when a check starts", () => {
     const state = reduceDesktopUpdateStateOnCheckStart(
       {
-        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "latest"),
+        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "nightly"),
         enabled: true,
         status: "error",
         message: "network",
@@ -42,7 +42,7 @@ describe("updateMachine", () => {
   it("records a check failure without exposing an action", () => {
     const state = reduceDesktopUpdateStateOnCheckFailure(
       {
-        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "latest"),
+        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "nightly"),
         enabled: true,
         status: "checking",
       },
@@ -58,7 +58,7 @@ describe("updateMachine", () => {
   it("preserves available version on download failure for retry", () => {
     const state = reduceDesktopUpdateStateOnDownloadFailure(
       {
-        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "latest"),
+        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "nightly"),
         enabled: true,
         status: "downloading",
         availableVersion: "1.1.0",
@@ -76,7 +76,7 @@ describe("updateMachine", () => {
   it("transitions to downloaded and then preserves install retry state", () => {
     const downloaded = reduceDesktopUpdateStateOnDownloadComplete(
       {
-        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "latest"),
+        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "nightly"),
         enabled: true,
         status: "downloading",
         availableVersion: "1.1.0",
@@ -98,7 +98,7 @@ describe("updateMachine", () => {
   it("clears stale download state when no update is available", () => {
     const state = reduceDesktopUpdateStateOnNoUpdate(
       {
-        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "latest"),
+        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "nightly"),
         enabled: true,
         status: "error",
         availableVersion: "1.1.0",
@@ -126,7 +126,7 @@ describe("updateMachine", () => {
     ];
     const available = reduceDesktopUpdateStateOnUpdateAvailable(
       {
-        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "latest"),
+        ...createInitialDesktopUpdateState("1.0.0", runtimeInfo, "nightly"),
         enabled: true,
         status: "checking",
       },
@@ -138,7 +138,7 @@ describe("updateMachine", () => {
     const progress = reduceDesktopUpdateStateOnDownloadProgress(downloading, 55.5);
 
     expect(available.status).toBe("available");
-    expect(available.channel).toBe("latest");
+    expect(available.channel).toBe("nightly");
     expect(available.releaseNotes).toBe(releaseNotes);
     expect(downloading.releaseNotes).toBe(releaseNotes);
     expect(downloading.status).toBe("downloading");

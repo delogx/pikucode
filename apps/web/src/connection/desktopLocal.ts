@@ -1,15 +1,15 @@
-import type { ConnectionTarget } from "@t3tools/client-runtime/connection";
+import type { ConnectionTarget } from "@piku/client-runtime/connection";
 import {
   PRIMARY_LOCAL_ENVIRONMENT_ID,
   type DesktopBridge,
   type DesktopEnvironmentBootstrap,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 
 /**
- * Desktop-local secondary backends (e.g. a parallel WSL backend) are registered
+ * Desktop-local secondary backends are registered
  * by the connection platform source as bearer connections whose id carries this
  * prefix. It is the renderer's single signal that an environment is a
- * host-managed local backend rather than a user-saved remote, SSH, or relay
+ * host-managed local backend rather than a user-saved remote or relay
  * environment.
  *
  * Keep this the one source of truth: the producer (`connection/platform.ts`)

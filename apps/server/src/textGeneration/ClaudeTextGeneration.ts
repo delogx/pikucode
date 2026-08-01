@@ -13,11 +13,10 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
-import { type ClaudeSettings, type ModelSelection } from "@t3tools/contracts";
-import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@t3tools/shared/git";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
+import { type ClaudeSettings, type ModelSelection } from "@piku/contracts";
+import { sanitizeBranchFragment, sanitizeFeatureBranchName } from "@piku/shared/git";
 
-import { TextGenerationError } from "@t3tools/contracts";
+import { TextGenerationError } from "@piku/contracts";
 import * as TextGeneration from "./TextGeneration.ts";
 import {
   buildBranchNamePrompt,
@@ -35,7 +34,7 @@ import {
 import {
   getModelSelectionStringOptionValue,
   getProviderOptionDescriptors,
-} from "@t3tools/shared/model";
+} from "@piku/shared/model";
 import {
   getClaudeModelCapabilities,
   isClaudeUltracodeEffort,
@@ -157,7 +156,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
         : undefined;
 
     const runClaudeCommand = Effect.fn("runClaudeJson.runClaudeCommand")(function* () {
-      const spawnCommand = yield* resolveSpawnCommand(
+      const command = ChildProcess.make(
         claudeSettings.binaryPath || "claude",
         [
           "-p",
@@ -171,16 +170,14 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
           ...(settingsJson ? ["--settings", settingsJson] : []),
           "--dangerously-skip-permissions",
         ],
-        { env: claudeEnvironment },
-      );
-      const command = ChildProcess.make(spawnCommand.command, spawnCommand.args, {
-        env: claudeEnvironment,
-        cwd,
-        shell: spawnCommand.shell,
-        stdin: {
-          stream: Stream.encodeText(Stream.make(prompt)),
+        {
+          env: claudeEnvironment,
+          cwd,
+          stdin: {
+            stream: Stream.encodeText(Stream.make(prompt)),
+          },
         },
-      });
+      );
 
       const child = yield* commandSpawner
         .spawn(command)

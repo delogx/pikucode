@@ -26,7 +26,6 @@ export const HostPowerSource = Schema.Literals([
   "node-macos-shell",
   "node-macos-native",
   "node-linux",
-  "node-windows",
   "electron-main",
 ]);
 export type HostPowerSource = typeof HostPowerSource.Type;

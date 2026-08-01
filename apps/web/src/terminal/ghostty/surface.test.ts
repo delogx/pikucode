@@ -59,7 +59,7 @@ describe("terminalLinkAtColumn", () => {
     const cells = [
       cell("🙂"),
       cell(""),
-      ...Array.from("https://t3.codes", (character) => cell(character)),
+      ...Array.from("https://pikucode.dev", (character) => cell(character)),
     ];
     const row: GhosttyRow = {
       cells,
@@ -71,8 +71,8 @@ describe("terminalLinkAtColumn", () => {
       wrapsToNext: false,
     };
 
-    expect(terminalLinkAtColumn(row, 2)).toBe("https://t3.codes");
-    expect(terminalLinkAtColumn(row, cells.length - 1)).toBe("https://t3.codes");
+    expect(terminalLinkAtColumn(row, 2)).toBe("https://pikucode.dev");
+    expect(terminalLinkAtColumn(row, cells.length - 1)).toBe("https://pikucode.dev");
     expect(terminalLinkAtColumn(row, 0)).toBeNull();
   });
 
@@ -107,20 +107,20 @@ describe("terminalLinkAtColumn", () => {
     const headCut = [row("ple.com/missing", true), row("head", true)];
     expect(terminalLinkAtPosition(headCut, 0, 4)).toBeNull();
     // The bottom row soft-wraps on below the viewport.
-    const tailCut = [row("https://t3.codes", false, true)];
+    const tailCut = [row("https://pikucode.dev", false, true)];
     expect(terminalLinkAtPosition(tailCut, 0, 8)).toBeNull();
     // A partial bottom row is provably complete and still resolves.
-    const complete = [row("https://t3.codes", false), row("", false)];
-    expect(terminalLinkAtPosition(complete, 0, 8)).toBe("https://t3.codes");
+    const complete = [row("https://pikucode.dev", false), row("", false)];
+    expect(terminalLinkAtPosition(complete, 0, 8)).toBe("https://pikucode.dev");
     // A wide grapheme earlier in the row must not break truncation detection:
     // the soft-wrap flag decides, not string-length-versus-cell-count.
     const wideFull: GhosttyRow = {
       cells: [
         { ...cell("🙂"), wide: 1 },
         { ...cell(""), wide: 2 },
-        ...Array.from("https://t3.code", (character) => cell(character)),
+        ...Array.from("https://piku.code", (character) => cell(character)),
       ],
-      text: "🙂 https://t3.code",
+      text: "🙂 https://piku.code",
       isWrapContinuation: false,
       wrapsToNext: true,
     };
@@ -128,15 +128,15 @@ describe("terminalLinkAtColumn", () => {
     // Unwritten trailing cells prove the bottom row is complete.
     const unwrittenTail: GhosttyRow = {
       cells: [
-        ...Array.from("https://t3.codes", (character) => cell(character)),
+        ...Array.from("https://pikucode.dev", (character) => cell(character)),
         cell(""),
         cell(""),
       ],
-      text: "https://t3.codes",
+      text: "https://pikucode.dev",
       isWrapContinuation: false,
       wrapsToNext: false,
     };
-    expect(terminalLinkAtPosition([unwrittenTail], 0, 8)).toBe("https://t3.codes");
+    expect(terminalLinkAtPosition([unwrittenTail], 0, 8)).toBe("https://pikucode.dev");
   });
 });
 

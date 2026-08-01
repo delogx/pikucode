@@ -2,7 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useAtomValue } from "@effect/atom-react";
 import { DownloadIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { type ProviderDriverKind, type ProviderInstanceId } from "@t3tools/contracts";
+import { type ProviderDriverKind, type ProviderInstanceId } from "@piku/contracts";
 
 import { primaryServerProvidersAtom, serverEnvironment } from "../state/server";
 import { usePrimaryEnvironment } from "../state/environments";
@@ -107,8 +107,8 @@ function isTerminalProviderUpdateToastView(view: ProviderUpdateToastView) {
 
 /**
  * The single-prompt provider update notification used when there is only one
- * local environment (no WSL backend). Non-WSL users see exactly this flow — the
- * per-environment split is gated behind WSL presence.
+ * local environment (no secondary backend). Most users see exactly this flow —
+ * the per-environment split is gated behind secondary-backend presence.
  */
 export function ProviderUpdatePrimaryNotification() {
   const navigate = useNavigate();
@@ -121,7 +121,7 @@ export function ProviderUpdatePrimaryNotification() {
   const { dismissedNotificationKeys, dismissNotificationKey } =
     useDismissedProviderUpdateNotificationKeys();
 
-  // If this flow unmounts (e.g. a WSL backend appears and we switch to the
+  // If this flow unmounts (e.g. a secondary backend appears and we switch to the
   // per-environment popover), close any prompt it owns so it does not linger.
   useEffect(() => {
     return () => {

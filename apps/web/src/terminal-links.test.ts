@@ -227,7 +227,7 @@ describe("isTerminalLinkActivation", () => {
           metaKey: false,
           ctrlKey: true,
         },
-        "Win32",
+        "Linux",
       ),
     ).toBe(true);
     expect(

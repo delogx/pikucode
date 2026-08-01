@@ -1,45 +1,24 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it as effectIt } from "@effect/vitest";
-import { HostProcessEnvironment, HostProcessPlatform } from "@t3tools/shared/hostProcess";
 import * as Effect from "effect/Effect";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
   extractPathFromShellOutput,
-  CommandAvailability,
-  type CommandAvailabilityChecker,
   isCommandAvailable,
   listLoginShellCandidates,
   mergePathEntries,
-  mergePathValues,
   readEnvironmentFromLoginShell,
-  readEnvironmentFromWindowsShell,
   readPathFromLaunchctl,
   readPathFromLoginShell,
   resolveCommandPath,
-  resolveKnownWindowsCliDirs,
-  resolveSpawnCommand,
-  resolveWindowsEnvironment,
-  SpawnExecutableResolution,
-  WindowsShellEnvironment,
-  type WindowsShellEnvironmentReader,
 } from "./shell.ts";
-
-const withWindowsEnvironmentMocks = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-  readEnvironment: WindowsShellEnvironmentReader,
-  commandAvailable: CommandAvailabilityChecker,
-) =>
-  effect.pipe(
-    Effect.provideService(WindowsShellEnvironment, readEnvironment),
-    Effect.provideService(CommandAvailability, commandAvailable),
-  );
 
 describe("extractPathFromShellOutput", () => {
   it("extracts the path between capture markers", () => {
     expect(
       extractPathFromShellOutput(
-        "__T3CODE_PATH_START__\n/opt/homebrew/bin:/usr/bin\n__T3CODE_PATH_END__\n",
+        "__PIKU_PATH_START__\n/opt/homebrew/bin:/usr/bin\n__PIKU_PATH_END__\n",
       ),
     ).toBe("/opt/homebrew/bin:/usr/bin");
   });
@@ -47,7 +26,7 @@ describe("extractPathFromShellOutput", () => {
   it("ignores shell startup noise around the capture markers", () => {
     expect(
       extractPathFromShellOutput(
-        "Welcome to fish\n__T3CODE_PATH_START__\n/opt/homebrew/bin:/usr/bin\n__T3CODE_PATH_END__\nBye\n",
+        "Welcome to fish\n__PIKU_PATH_START__\n/opt/homebrew/bin:/usr/bin\n__PIKU_PATH_END__\nBye\n",
       ),
     ).toBe("/opt/homebrew/bin:/usr/bin");
   });
@@ -65,7 +44,7 @@ describe("readPathFromLoginShell", () => {
         args: ReadonlyArray<string>,
         options: { encoding: "utf8"; timeout: number },
       ) => string
-    >(() => "__T3CODE_ENV_PATH_START__\n/a:/b\n__T3CODE_ENV_PATH_END__\n");
+    >(() => "__PIKU_ENV_PATH_START__\n/a:/b\n__PIKU_ENV_PATH_END__\n");
 
     expect(readPathFromLoginShell("/opt/homebrew/bin/fish", execFile)).toBe("/a:/b");
     expect(execFile).toHaveBeenCalledTimes(1);
@@ -83,8 +62,8 @@ describe("readPathFromLoginShell", () => {
     expect(args).toHaveLength(2);
     expect(args?.[0]).toBe("-ilc");
     expect(args?.[1]).toContain("printenv PATH || true");
-    expect(args?.[1]).toContain("__T3CODE_ENV_PATH_START__");
-    expect(args?.[1]).toContain("__T3CODE_ENV_PATH_END__");
+    expect(args?.[1]).toContain("__PIKU_ENV_PATH_START__");
+    expect(args?.[1]).toContain("__PIKU_ENV_PATH_END__");
     expect(options).toEqual({ encoding: "utf8", timeout: 5000 });
   });
 });
@@ -131,12 +110,12 @@ describe("readEnvironmentFromLoginShell", () => {
       ) => string
     >(() =>
       [
-        "__T3CODE_ENV_PATH_START__",
+        "__PIKU_ENV_PATH_START__",
         "/a:/b",
-        "__T3CODE_ENV_PATH_END__",
-        "__T3CODE_ENV_SSH_AUTH_SOCK_START__",
+        "__PIKU_ENV_PATH_END__",
+        "__PIKU_ENV_SSH_AUTH_SOCK_START__",
         "/tmp/secretive.sock",
-        "__T3CODE_ENV_SSH_AUTH_SOCK_END__",
+        "__PIKU_ENV_SSH_AUTH_SOCK_END__",
       ].join("\n"),
     );
 
@@ -156,11 +135,11 @@ describe("readEnvironmentFromLoginShell", () => {
       ) => string
     >(() =>
       [
-        "__T3CODE_ENV_PATH_START__",
+        "__PIKU_ENV_PATH_START__",
         "/a:/b",
-        "__T3CODE_ENV_PATH_END__",
-        "__T3CODE_ENV_SSH_AUTH_SOCK_START__",
-        "__T3CODE_ENV_SSH_AUTH_SOCK_END__",
+        "__PIKU_ENV_PATH_END__",
+        "__PIKU_ENV_SSH_AUTH_SOCK_START__",
+        "__PIKU_ENV_SSH_AUTH_SOCK_END__",
       ].join("\n"),
     );
 
@@ -177,7 +156,7 @@ describe("readEnvironmentFromLoginShell", () => {
         options: { encoding: "utf8"; timeout: number },
       ) => string
     >(() =>
-      ["__T3CODE_ENV_CUSTOM_VAR_START__", "  padded value  ", "__T3CODE_ENV_CUSTOM_VAR_END__"].join(
+      ["__PIKU_ENV_CUSTOM_VAR_START__", "  padded value  ", "__PIKU_ENV_CUSTOM_VAR_END__"].join(
         "\n",
       ),
     );
@@ -203,142 +182,9 @@ describe("listLoginShellCandidates", () => {
 
 describe("mergePathEntries", () => {
   it("prefers login-shell PATH entries and keeps inherited extras", () => {
-    expect(
-      mergePathEntries("/opt/homebrew/bin:/usr/bin", "/Users/test/.local/bin:/usr/bin", "darwin"),
-    ).toBe("/opt/homebrew/bin:/usr/bin:/Users/test/.local/bin");
-  });
-
-  it("uses the platform-specific delimiter", () => {
-    expect(mergePathEntries("C:\\Tools;C:\\Windows", "C:\\Windows;C:\\Git", "win32")).toBe(
-      "C:\\Tools;C:\\Windows;C:\\Git",
+    expect(mergePathEntries("/opt/homebrew/bin:/usr/bin", "/Users/test/.local/bin:/usr/bin")).toBe(
+      "/opt/homebrew/bin:/usr/bin:/Users/test/.local/bin",
     );
-  });
-});
-
-describe("readEnvironmentFromWindowsShell", () => {
-  it("extracts environment variables from a PowerShell command", () => {
-    const execFile = vi.fn<
-      (
-        file: string,
-        args: ReadonlyArray<string>,
-        options: { encoding: "utf8"; timeout: number },
-      ) => string
-    >(
-      () =>
-        "__T3CODE_ENV_PATH_START__\nC:\\Users\\testuser\\AppData\\Roaming\\npm\n__T3CODE_ENV_PATH_END__\n",
-    );
-
-    expect(readEnvironmentFromWindowsShell(["PATH"], execFile)).toEqual({
-      PATH: "C:\\Users\\testuser\\AppData\\Roaming\\npm",
-    });
-    expect(execFile).toHaveBeenCalledWith(
-      "pwsh.exe",
-      expect.arrayContaining(["-NoLogo", "-NoProfile", "-NonInteractive", "-Command"]),
-      { encoding: "utf8", timeout: 5000 },
-    );
-  });
-
-  it("strips CRLF delimiters from captured PowerShell values", () => {
-    const execFile = vi.fn<
-      (
-        file: string,
-        args: ReadonlyArray<string>,
-        options: { encoding: "utf8"; timeout: number },
-      ) => string
-    >(
-      () =>
-        "__T3CODE_ENV_FNM_DIR_START__\r\nC:\\Users\\testuser\\AppData\\Roaming\\fnm\r\n__T3CODE_ENV_FNM_DIR_END__\r\n",
-    );
-
-    expect(readEnvironmentFromWindowsShell(["FNM_DIR"], execFile)).toEqual({
-      FNM_DIR: "C:\\Users\\testuser\\AppData\\Roaming\\fnm",
-    });
-  });
-
-  it("omits -NoProfile when loadProfile is enabled", () => {
-    const execFile = vi.fn<
-      (
-        file: string,
-        args: ReadonlyArray<string>,
-        options: { encoding: "utf8"; timeout: number },
-      ) => string
-    >(() => "__T3CODE_ENV_PATH_START__\nC:\\Tools\n__T3CODE_ENV_PATH_END__\n");
-
-    expect(readEnvironmentFromWindowsShell(["PATH"], { loadProfile: true }, execFile)).toEqual({
-      PATH: "C:\\Tools",
-    });
-    expect(execFile).toHaveBeenCalledWith(
-      "pwsh.exe",
-      expect.arrayContaining(["-NoLogo", "-NonInteractive", "-Command"]),
-      { encoding: "utf8", timeout: 5000 },
-    );
-    expect(execFile.mock.calls[0]?.[1]).not.toContain("-NoProfile");
-  });
-
-  it("falls back to Windows PowerShell when pwsh.exe is unavailable", () => {
-    const execFile = vi.fn<
-      (
-        file: string,
-        args: ReadonlyArray<string>,
-        options: { encoding: "utf8"; timeout: number },
-      ) => string
-    >((file) => {
-      if (file === "pwsh.exe") {
-        throw new Error("spawn pwsh.exe ENOENT");
-      }
-      return "__T3CODE_ENV_PATH_START__\nC:\\Tools\n__T3CODE_ENV_PATH_END__\n";
-    });
-
-    expect(readEnvironmentFromWindowsShell(["PATH"], execFile)).toEqual({
-      PATH: "C:\\Tools",
-    });
-    expect(execFile).toHaveBeenNthCalledWith(1, "pwsh.exe", expect.any(Array), {
-      encoding: "utf8",
-      timeout: 5000,
-    });
-    expect(execFile).toHaveBeenNthCalledWith(2, "powershell.exe", expect.any(Array), {
-      encoding: "utf8",
-      timeout: 5000,
-    });
-  });
-});
-
-describe("mergePathValues", () => {
-  it("dedupes case-insensitively on Windows while preserving preferred order", () => {
-    expect(
-      mergePathValues(
-        'C:\\Users\\testuser\\AppData\\Roaming\\npm;"C:\\Program Files\\nodejs"',
-        "c:\\users\\testuser\\appdata\\roaming\\npm;C:\\Windows\\System32",
-        "win32",
-      ),
-    ).toBe(
-      'C:\\Users\\testuser\\AppData\\Roaming\\npm;"C:\\Program Files\\nodejs";C:\\Windows\\System32',
-    );
-  });
-
-  it("dedupes case-sensitively on POSIX", () => {
-    expect(mergePathValues("/usr/local/bin:/usr/bin", "/usr/bin:/USR/BIN", "linux")).toBe(
-      "/usr/local/bin:/usr/bin:/USR/BIN",
-    );
-  });
-});
-
-describe("resolveKnownWindowsCliDirs", () => {
-  it("returns known Windows CLI install directories in priority order", () => {
-    expect(
-      resolveKnownWindowsCliDirs({
-        APPDATA: "C:\\Users\\testuser\\AppData\\Roaming",
-        LOCALAPPDATA: "C:\\Users\\testuser\\AppData\\Local",
-        USERPROFILE: "C:\\Users\\testuser",
-      }),
-    ).toEqual([
-      "C:\\Users\\testuser\\AppData\\Roaming\\npm",
-      "C:\\Users\\testuser\\AppData\\Local\\Programs\\nodejs",
-      "C:\\Users\\testuser\\AppData\\Local\\Volta\\bin",
-      "C:\\Users\\testuser\\AppData\\Local\\pnpm",
-      "C:\\Users\\testuser\\.bun\\bin",
-      "C:\\Users\\testuser\\scoop\\shims",
-    ]);
   });
 });
 
@@ -347,8 +193,8 @@ effectIt.layer(NodeServices.layer)("isCommandAvailable", (it) => {
     Effect.gen(function* () {
       expect(
         yield* isCommandAvailable("definitely-not-installed", {
-          env: { PATH: "", PATHEXT: ".COM;.EXE;.BAT;.CMD" },
-        }).pipe(Effect.provideService(HostProcessPlatform, "win32")),
+          env: { PATH: "" },
+        }),
       ).toBe(false);
     }),
   );
@@ -358,219 +204,10 @@ effectIt.layer(NodeServices.layer)("resolveCommandPath", (it) => {
   it.effect("fails when PATH is empty", () =>
     Effect.gen(function* () {
       const result = yield* resolveCommandPath("definitely-not-installed", {
-        env: { PATH: "", PATHEXT: ".COM;.EXE;.BAT;.CMD" },
-      }).pipe(Effect.provideService(HostProcessPlatform, "win32"), Effect.result);
+        env: { PATH: "" },
+      }).pipe(Effect.result);
 
       expect(result._tag).toBe("Failure");
-    }),
-  );
-});
-
-effectIt.layer(NodeServices.layer)("resolveSpawnCommand", (it) => {
-  it.effect("runs Windows executables directly without a shell", () =>
-    Effect.gen(function* () {
-      const command = yield* resolveSpawnCommand("node.exe", ["script.js", "hello & goodbye"], {
-        env: { PATH: "", PATHEXT: ".COM;.EXE;.BAT;.CMD" },
-      }).pipe(Effect.provideService(HostProcessPlatform, "win32"));
-
-      expect(command).toEqual({
-        command: "node.exe",
-        args: ["script.js", "hello & goodbye"],
-        shell: false,
-      });
-    }),
-  );
-
-  it.effect("escapes the executable and arguments for Windows command shims", () =>
-    Effect.gen(function* () {
-      const command = yield* resolveSpawnCommand(
-        "vp",
-        ["run", "value & calc", "%PATH%", 'quote"value'],
-        { env: { PATH: "", PATHEXT: ".COM;.EXE;.BAT;.CMD" } },
-      ).pipe(
-        Effect.provideService(HostProcessPlatform, "win32"),
-        Effect.provideService(
-          SpawnExecutableResolution,
-          () => "C:\\Program Files\\npm & tools\\vp.cmd",
-        ),
-      );
-
-      expect(command.shell).toBe(true);
-      expect(command.command).not.toContain(" & ");
-      expect(command.command).toContain("^&");
-      expect(command.args).toEqual([
-        '^"run^"',
-        '^"value^ ^&^ calc^"',
-        '^"^%PATH^%^"',
-        '^"quote\\^"value^"',
-      ]);
-    }),
-  );
-
-  it.effect("resolves against the effective environment when extending host env", () =>
-    Effect.gen(function* () {
-      let resolvedEnvironment: NodeJS.ProcessEnv | undefined;
-      yield* resolveSpawnCommand("codex", ["app-server"], {
-        env: { CODEX_HOME: "C:\\Users\\tester\\.codex" },
-        extendEnv: true,
-      }).pipe(
-        Effect.provideService(HostProcessPlatform, "win32"),
-        Effect.provideService(HostProcessEnvironment, {
-          PATH: "C:\\Users\\tester\\AppData\\Roaming\\npm",
-          PATHEXT: ".COM;.EXE;.BAT;.CMD",
-        }),
-        Effect.provideService(SpawnExecutableResolution, (_command, _platform, env) => {
-          resolvedEnvironment = env;
-          return "C:\\Users\\tester\\AppData\\Roaming\\npm\\codex.cmd";
-        }),
-      );
-
-      expect(resolvedEnvironment).toEqual({
-        PATH: "C:\\Users\\tester\\AppData\\Roaming\\npm",
-        PATHEXT: ".COM;.EXE;.BAT;.CMD",
-        CODEX_HOME: "C:\\Users\\tester\\.codex",
-      });
-    }),
-  );
-
-  it.effect("does not fall back to a shell for unresolved Windows commands", () =>
-    Effect.gen(function* () {
-      const command = yield* resolveSpawnCommand("missing & calc", ["unsafe & value"], {
-        env: { PATH: "", PATHEXT: ".COM;.EXE;.BAT;.CMD" },
-      }).pipe(Effect.provideService(HostProcessPlatform, "win32"));
-
-      expect(command).toEqual({
-        command: "missing & calc",
-        args: ["unsafe & value"],
-        shell: false,
-      });
-    }),
-  );
-});
-
-effectIt.layer(NodeServices.layer)("resolveWindowsEnvironment", (it) => {
-  it.effect("returns the baseline no-profile PATH patch when node is already available", () =>
-    Effect.gen(function* () {
-      const readEnvironment = vi.fn(
-        (_names: ReadonlyArray<string>, options?: { loadProfile?: boolean }) =>
-          options?.loadProfile
-            ? { PATH: "C:\\Profile\\Bin" }
-            : { PATH: "C:\\Shell\\Bin;C:\\Windows\\System32" },
-      );
-      const commandAvailable = vi.fn(() => Effect.succeed(true));
-
-      expect(
-        yield* withWindowsEnvironmentMocks(
-          resolveWindowsEnvironment({
-            PATH: "C:\\Windows\\System32",
-            APPDATA: "C:\\Users\\testuser\\AppData\\Roaming",
-            LOCALAPPDATA: "C:\\Users\\testuser\\AppData\\Local",
-            USERPROFILE: "C:\\Users\\testuser",
-          }),
-          readEnvironment,
-          commandAvailable,
-        ),
-      ).toEqual({
-        PATH: [
-          "C:\\Users\\testuser\\AppData\\Roaming\\npm",
-          "C:\\Users\\testuser\\AppData\\Local\\Programs\\nodejs",
-          "C:\\Users\\testuser\\AppData\\Local\\Volta\\bin",
-          "C:\\Users\\testuser\\AppData\\Local\\pnpm",
-          "C:\\Users\\testuser\\.bun\\bin",
-          "C:\\Users\\testuser\\scoop\\shims",
-          "C:\\Shell\\Bin",
-          "C:\\Windows\\System32",
-        ].join(";"),
-      });
-      expect(readEnvironment).toHaveBeenCalledTimes(1);
-      expect(readEnvironment).toHaveBeenCalledWith(["PATH"], { loadProfile: false });
-      expect(commandAvailable).toHaveBeenCalledWith(
-        "node",
-        expect.objectContaining({ env: expect.any(Object) }),
-      );
-    }),
-  );
-
-  it.effect("loads the PowerShell profile when baseline env cannot resolve node", () =>
-    Effect.gen(function* () {
-      const readEnvironment = vi.fn(
-        (_names: ReadonlyArray<string>, options?: { loadProfile?: boolean }) =>
-          options?.loadProfile
-            ? {
-                PATH: "C:\\Profile\\Node;C:\\Windows\\System32",
-                FNM_DIR: "C:\\Users\\testuser\\AppData\\Roaming\\fnm",
-                FNM_MULTISHELL_PATH: "C:\\Users\\testuser\\AppData\\Local\\fnm_multishells\\123",
-              }
-            : { PATH: "C:\\Shell\\Bin;C:\\Windows\\System32" },
-      );
-      const commandAvailable = vi.fn(() => Effect.succeed(false));
-
-      expect(
-        yield* withWindowsEnvironmentMocks(
-          resolveWindowsEnvironment({
-            PATH: "C:\\Windows\\System32",
-            APPDATA: "C:\\Users\\testuser\\AppData\\Roaming",
-            LOCALAPPDATA: "C:\\Users\\testuser\\AppData\\Local",
-            USERPROFILE: "C:\\Users\\testuser",
-          }),
-          readEnvironment,
-          commandAvailable,
-        ),
-      ).toEqual({
-        PATH: [
-          "C:\\Profile\\Node",
-          "C:\\Windows\\System32",
-          "C:\\Users\\testuser\\AppData\\Roaming\\npm",
-          "C:\\Users\\testuser\\AppData\\Local\\Programs\\nodejs",
-          "C:\\Users\\testuser\\AppData\\Local\\Volta\\bin",
-          "C:\\Users\\testuser\\AppData\\Local\\pnpm",
-          "C:\\Users\\testuser\\.bun\\bin",
-          "C:\\Users\\testuser\\scoop\\shims",
-          "C:\\Shell\\Bin",
-        ].join(";"),
-        FNM_DIR: "C:\\Users\\testuser\\AppData\\Roaming\\fnm",
-        FNM_MULTISHELL_PATH: "C:\\Users\\testuser\\AppData\\Local\\fnm_multishells\\123",
-      });
-      expect(readEnvironment).toHaveBeenNthCalledWith(1, ["PATH"], { loadProfile: false });
-      expect(readEnvironment).toHaveBeenNthCalledWith(
-        2,
-        ["PATH", "FNM_DIR", "FNM_MULTISHELL_PATH"],
-        {
-          loadProfile: true,
-        },
-      );
-      expect(commandAvailable).toHaveBeenCalledTimes(1);
-    }),
-  );
-
-  it.effect("keeps the baseline env when profiled probe still does not resolve node", () =>
-    Effect.gen(function* () {
-      const readEnvironment = vi.fn(
-        (_names: ReadonlyArray<string>, options?: { loadProfile?: boolean }) =>
-          options?.loadProfile ? { FNM_DIR: "C:\\Users\\testuser\\AppData\\Roaming\\fnm" } : {},
-      );
-      const commandAvailable = vi.fn(() => Effect.succeed(false));
-
-      expect(
-        yield* withWindowsEnvironmentMocks(
-          resolveWindowsEnvironment({
-            PATH: "C:\\Windows\\System32",
-            APPDATA: "C:\\Users\\testuser\\AppData\\Roaming",
-            USERPROFILE: "C:\\Users\\testuser",
-          }),
-          readEnvironment,
-          commandAvailable,
-        ),
-      ).toEqual({
-        PATH: [
-          "C:\\Users\\testuser\\AppData\\Roaming\\npm",
-          "C:\\Users\\testuser\\.bun\\bin",
-          "C:\\Users\\testuser\\scoop\\shims",
-          "C:\\Windows\\System32",
-        ].join(";"),
-        FNM_DIR: "C:\\Users\\testuser\\AppData\\Roaming\\fnm",
-      });
-      expect(commandAvailable).toHaveBeenCalledTimes(1);
     }),
   );
 });

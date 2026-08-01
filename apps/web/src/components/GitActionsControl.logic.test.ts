@@ -1,4 +1,4 @@
-import type { VcsStatusResult } from "@t3tools/contracts";
+import type { VcsStatusResult } from "@piku/contracts";
 import { assert, describe, it } from "vite-plus/test";
 import {
   buildGitActionProgressStages,
@@ -254,28 +254,28 @@ describe("when: ref is clean, ahead, and has no open PR", () => {
   });
 });
 
-describe("when: source control provider uses merge requests", () => {
-  it("uses GitLab MR terminology in quick actions and menu items", () => {
-    const gitlabStatus = status({
+describe("when: the source control provider is unrecognized", () => {
+  it("uses generic change request terminology in quick actions and menu items", () => {
+    const unknownStatus = status({
       aheadCount: 2,
       sourceControlProvider: {
-        kind: "gitlab",
-        name: "GitLab",
-        baseUrl: "https://gitlab.com",
+        kind: "unknown",
+        name: "source control",
+        baseUrl: "https://self-hosted.example.test",
       },
     });
 
-    const quick = resolveQuickAction(gitlabStatus, false);
-    const items = buildMenuItems(gitlabStatus, false);
+    const quick = resolveQuickAction(unknownStatus, false);
+    const items = buildMenuItems(unknownStatus, false);
 
     assert.deepInclude(quick, {
       kind: "run_action",
       action: "create_pr",
-      label: "Push & create MR",
+      label: "Push & create change request",
     });
     assert.deepInclude(items[2], {
       id: "pr",
-      label: "Create MR",
+      label: "Create change request",
     });
   });
 });
@@ -1095,8 +1095,8 @@ describe("resolveLiveThreadBranchUpdate", () => {
 
   it("does not regress a semantic thread ref back to a temporary worktree ref", () => {
     const update = resolveLiveThreadBranchUpdate({
-      threadBranch: "t3code/github-query-rate-limit",
-      gitStatus: status({ refName: "t3code/bda76797" }),
+      threadBranch: "pikucode/github-query-rate-limit",
+      gitStatus: status({ refName: "pikucode/bda76797" }),
     });
 
     assert.equal(update, null);
@@ -1104,7 +1104,7 @@ describe("resolveLiveThreadBranchUpdate", () => {
 
   it("allows a temporary worktree ref to reconcile to a semantic branch", () => {
     const update = resolveLiveThreadBranchUpdate({
-      threadBranch: "t3code/a9628676",
+      threadBranch: "pikucode/a9628676",
       gitStatus: status({ refName: "feature/diff-panel-toggle" }),
     });
 

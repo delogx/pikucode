@@ -1,4 +1,4 @@
-import { CommandId, MessageId, ProjectId, ThreadId } from "@t3tools/contracts";
+import { CommandId, MessageId, ProjectId, ThreadId } from "@piku/contracts";
 import { type CxOptions, cx } from "class-variance-authority";
 import * as Encoding from "effect/Encoding";
 import { twMerge } from "tailwind-merge";
@@ -10,10 +10,6 @@ export function cn(...inputs: CxOptions) {
 
 export function isMacPlatform(platform: string): boolean {
   return /mac|iphone|ipad|ipod/i.test(platform);
-}
-
-export function isWindowsPlatform(platform: string): boolean {
-  return /^win(dows)?/i.test(platform);
 }
 
 export function isLinuxPlatform(platform: string): boolean {

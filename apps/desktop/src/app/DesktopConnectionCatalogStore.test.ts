@@ -1,7 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
-import { ConnectionCatalogDocument } from "@t3tools/client-runtime/platform";
-import { EnvironmentId, type PersistedSavedEnvironmentRecord } from "@t3tools/contracts";
+import { ConnectionCatalogDocument } from "@piku/client-runtime/platform";
+import { EnvironmentId, type PersistedSavedEnvironmentRecord } from "@piku/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -60,7 +60,7 @@ function makeLayer(
     runningUnderArm64Translation: false,
   }).pipe(
     Layer.provide(
-      Layer.mergeAll(NodeServices.layer, DesktopConfig.layerTest({ T3CODE_HOME: baseDir })),
+      Layer.mergeAll(NodeServices.layer, DesktopConfig.layerTest({ PIKU_HOME: baseDir })),
     ),
   );
   const safeStorageLayer = makeSafeStorageLayer(encryptionAvailable, failDecrypt);
@@ -87,7 +87,7 @@ const withStore = <A, E, R>(
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const baseDir = yield* fileSystem.makeTempDirectoryScoped({
-      prefix: "t3-desktop-connection-catalog-test-",
+      prefix: "piku-desktop-connection-catalog-test-",
     });
     return yield* effect.pipe(Effect.provide(makeLayer(baseDir, encryptionAvailable)));
   }).pipe(Effect.provide(NodeServices.layer), Effect.scoped);
@@ -119,7 +119,7 @@ describe("DesktopConnectionCatalogStore", () => {
     ),
   );
 
-  it.effect("migrates legacy relay, SSH, bearer profile, and credential data", () =>
+  it.effect("migrates legacy relay, bearer profile, and credential data", () =>
     withStore(
       Effect.gen(function* () {
         const store = yield* DesktopConnectionCatalogStore.DesktopConnectionCatalogStore;
@@ -133,20 +133,6 @@ describe("DesktopConnectionCatalogStore", () => {
             createdAt: "2026-06-01T00:00:00.000Z",
             lastConnectedAt: null,
             relayManaged: { relayUrl: "https://relay-control.example.com/" },
-          },
-          {
-            environmentId: EnvironmentId.make("ssh-environment"),
-            label: "SSH",
-            httpBaseUrl: "http://127.0.0.1:41773/",
-            wsBaseUrl: "ws://127.0.0.1:41773/",
-            createdAt: "2026-06-02T00:00:00.000Z",
-            lastConnectedAt: null,
-            desktopSsh: {
-              alias: "devbox",
-              hostname: "devbox.example.com",
-              username: "julius",
-              port: 22,
-            },
           },
           {
             environmentId: EnvironmentId.make("bearer-environment"),
@@ -178,30 +164,12 @@ describe("DesktopConnectionCatalogStore", () => {
           label: "Relay",
         });
         assert.deepInclude(catalog.targets[1], {
-          _tag: "SshConnectionTarget",
-          environmentId: EnvironmentId.make("ssh-environment"),
-          label: "SSH",
-          connectionId: "ssh:ssh-environment",
-        });
-        assert.deepInclude(catalog.targets[2], {
           _tag: "BearerConnectionTarget",
           environmentId: EnvironmentId.make("bearer-environment"),
           label: "Bearer",
           connectionId: "bearer:bearer-environment",
         });
         assert.deepInclude(catalog.profiles[0], {
-          _tag: "SshConnectionProfile",
-          connectionId: "ssh:ssh-environment",
-          environmentId: EnvironmentId.make("ssh-environment"),
-          label: "SSH",
-          target: {
-            alias: "devbox",
-            hostname: "devbox.example.com",
-            username: "julius",
-            port: 22,
-          },
-        });
-        assert.deepInclude(catalog.profiles[1], {
           _tag: "BearerConnectionProfile",
           connectionId: "bearer:bearer-environment",
           environmentId: EnvironmentId.make("bearer-environment"),
@@ -248,7 +216,7 @@ describe("DesktopConnectionCatalogStore", () => {
     Effect.gen(function* () {
       const baseFileSystem = yield* FileSystem.FileSystem;
       const baseDir = yield* baseFileSystem.makeTempDirectoryScoped({
-        prefix: "t3-desktop-connection-catalog-test-",
+        prefix: "piku-desktop-connection-catalog-test-",
       });
       const permissionError = PlatformError.systemError({
         _tag: "PermissionDenied",
@@ -285,7 +253,7 @@ describe("DesktopConnectionCatalogStore", () => {
     Effect.gen(function* () {
       const baseFileSystem = yield* FileSystem.FileSystem;
       const baseDir = yield* baseFileSystem.makeTempDirectoryScoped({
-        prefix: "t3-desktop-connection-catalog-test-",
+        prefix: "piku-desktop-connection-catalog-test-",
       });
       const permissionError = PlatformError.systemError({
         _tag: "PermissionDenied",
@@ -382,7 +350,7 @@ describe("DesktopConnectionCatalogStore", () => {
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
       const baseDir = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-desktop-connection-catalog-test-",
+        prefix: "piku-desktop-connection-catalog-test-",
       });
       const failDecrypt = yield* Ref.make(false);
       const layer = makeLayer(baseDir, true, failDecrypt);

@@ -26,7 +26,7 @@ const history = isElectron ? createHashHistory() : createBrowserHistory();
 const router = getRouter(history);
 
 if (isElectron) {
-  syncDocumentElectronPlatformClasses(navigator.platform);
+  syncDocumentElectronPlatformClasses();
   syncDocumentWindowControlsOverlayClass();
 }
 

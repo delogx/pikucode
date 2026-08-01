@@ -2,7 +2,7 @@ import {
   insertRankedSearchResult,
   normalizeSearchQuery,
   scoreQueryMatch,
-} from "@t3tools/shared/searchRanking";
+} from "@piku/shared/searchRanking";
 
 import type { ComposerCommandItem } from "./ComposerCommandMenu";
 

@@ -1,6 +1,6 @@
 # Resource telemetry architecture
 
-> For maintainers. Using T3 Code? See [docs/user](../user/).
+> For maintainers. Using Piku Code? See [docs/user](../user/).
 
 Status: implemented
 
@@ -56,17 +56,6 @@ Node server ── stdin/stdout NDJSON ── Rust resource monitor
 Electron telemetry is unavailable. The native monitor still runs beside the
 server and tracks the server process tree. Power fields degrade to `unknown`
 instead of invoking platform shell commands.
-
-### WSL backend limitation
-
-Windows desktop packages currently ship the Windows resource-monitor executable.
-That executable cannot run inside the Linux WSL backend, so a WSL-only backend
-does not receive `resourceMonitorPath` and reports native process telemetry as
-unavailable. Electron host-power telemetry remains available over the inherited
-desktop pipe. Supporting native WSL process telemetry requires publishing a
-Linux sidecar for each supported architecture in the Windows artifact and
-converting its packaged path into the selected distro; the configuration
-deliberately does not pass the Windows `.exe` into WSL as a false fallback.
 
 ## Native monitor
 
@@ -165,7 +154,6 @@ The monitor preserves platform semantics instead of presenting all counters as
 equivalent:
 
 - Unix-like platforms report storage I/O counters exposed by `sysinfo`.
-- Windows reports all process I/O bytes, not only disk bytes.
 - Operating-system caches can prevent logical application reads or writes from
   appearing as physical storage bytes.
 
@@ -225,7 +213,7 @@ The implementation is under `apps/server/src/resourceTelemetry`.
 
 Resolves an executable from:
 
-1. `T3CODE_RESOURCE_MONITOR_PATH`;
+1. `PIKU_RESOURCE_MONITOR_PATH`;
 2. desktop bootstrap configuration;
 3. bundled CLI resources;
 4. local Cargo build outputs.
@@ -338,7 +326,7 @@ longer start recurring process-table commands.
 ## Packaging
 
 Desktop artifact builds compile the Rust target, stage it as
-`resources/resource-monitor/t3-resource-monitor[.exe]`, and pass its path to the
+`resources/resource-monitor/piku-resource-monitor[.exe]`, and pass its path to the
 backend bootstrap.
 
 CLI release jobs upload each active platform monitor artifact and copy it into:

@@ -61,7 +61,7 @@ describe("AcpRuntimeModel", () => {
     expect(modelConfigId).toBe("model");
   });
 
-  it("detects Grok session replay updates from _meta.isReplay", () => {
+  it("detects session replay updates from _meta.isReplay", () => {
     expect(
       sessionUpdateIsReplay({
         _meta: { isReplay: true },
@@ -88,14 +88,14 @@ describe("AcpRuntimeModel", () => {
       protocolVersion: 1,
       _meta: {
         modelState: {
-          currentModelId: "grok-build",
-          availableModels: [{ modelId: "grok-build", name: "Grok Build" }],
+          currentModelId: "claude-sonnet-5",
+          availableModels: [{ modelId: "claude-sonnet-5", name: "Claude Sonnet 5" }],
         },
       },
     } satisfies EffectAcpSchema.InitializeResponse);
 
-    expect(response.models?.currentModelId).toBe("grok-build");
-    expect(response._meta).toMatchObject({ t3SessionLoadReady: "replay_idle" });
+    expect(response.models?.currentModelId).toBe("claude-sonnet-5");
+    expect(response._meta).toMatchObject({ pikuSessionLoadReady: "replay_idle" });
   });
 
   it("accepts initialize model descriptions with null", () => {
@@ -103,8 +103,10 @@ describe("AcpRuntimeModel", () => {
       protocolVersion: 1,
       _meta: {
         modelState: {
-          currentModelId: "grok-build",
-          availableModels: [{ modelId: "grok-build", name: "Grok Build", description: null }],
+          currentModelId: "claude-sonnet-5",
+          availableModels: [
+            { modelId: "claude-sonnet-5", name: "Claude Sonnet 5", description: null },
+          ],
         },
       },
     } satisfies EffectAcpSchema.InitializeResponse);
@@ -117,7 +119,7 @@ describe("AcpRuntimeModel", () => {
       protocolVersion: 1,
       _meta: {
         modelState: {
-          currentModelId: "grok-build",
+          currentModelId: "claude-sonnet-5",
           availableModels: [null],
         },
         modeState: {
@@ -129,7 +131,7 @@ describe("AcpRuntimeModel", () => {
 
     expect(response.models).toBeUndefined();
     expect(response.modes).toBeUndefined();
-    expect(response._meta).toMatchObject({ t3SessionLoadReady: "replay_idle" });
+    expect(response._meta).toMatchObject({ pikuSessionLoadReady: "replay_idle" });
   });
 
   it("builds a synthetic load response with initialize mode state", () => {

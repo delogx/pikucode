@@ -8,13 +8,13 @@ import {
   type ServerSelfUpdateInput,
   type ServerSelfUpdateProgressStage,
   type ServerSelfUpdateResult,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import {
   HostProcessArguments,
   HostProcessEnvironment,
   HostProcessExecutablePath,
   HostProcessPlatform,
-} from "@t3tools/shared/hostProcess";
+} from "@piku/shared/hostProcess";
 import * as NodeChildProcess from "node:child_process";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
@@ -36,7 +36,7 @@ import {
 import { ensurePinnedRuntimeInstalled, removePinnedRuntimeInstallation } from "./pinnedRuntime.ts";
 
 /**
- * Lets a connected client replace this server with another published `t3`
+ * Lets a connected client replace this server with another published `piku`
  * version over RPC — the only update path that works when the user is not at
  * the machine (phone against a home server, relay-managed box). The target
  * version is npm-installed into the pinned runtime and verified before
@@ -76,18 +76,17 @@ function normalizeEntryPath(entryPath: string): string {
  * npm identity, and the desktop manages its own updates.
  */
 export function isPublishedCliEntry(entryPath: string): boolean {
-  return normalizeEntryPath(entryPath).includes("/node_modules/t3/dist/");
+  return normalizeEntryPath(entryPath).includes("/node_modules/piku/dist/");
 }
 
 /**
  * The update path this process can offer, or null when only a manual
- * relaunch works. "desktop-managed" — the T3 Code desktop app spawned this
+ * relaunch works. "desktop-managed" — the Piku Code desktop app spawned this
  * backend and owns its version; only updating the app updates it.
  * "boot-service" — this is the systemd-supervised process from
  * bootService.ts: rewrite the unit and let systemd swap it. "respawn" — a
  * foreground POSIX process running a published artifact: replace it with a
- * detached child. Windows foreground runs are unsupported for now (no
- * equivalent of the detach-and-exec handoff below).
+ * detached child.
  */
 export const resolveServerSelfUpdateCapability = Effect.fn(
   "cloud.server_self_update.resolve_capability",
@@ -118,7 +117,7 @@ export const resolveServerSelfUpdateCapability = Effect.fn(
       Effect.orElseSucceed(() => false),
     );
     // INVOCATION_ID only proves that some systemd unit launched us. The
-    // explicit marker written into t3code.service identifies this unit as the
+    // explicit marker written into pikucode.service identifies this unit as the
     // supervisor that will replace the current process when restarted.
     if (
       unitReferencesEntry &&
@@ -151,7 +150,7 @@ export class ServerSelfUpdate extends Context.Service<
       reportProgress?: (stage: ServerSelfUpdateProgressStage) => Effect.Effect<void, never, never>,
     ) => Effect.Effect<ServerSelfUpdateResult, ServerSelfUpdateError>;
   }
->()("t3/cloud/selfUpdate/ServerSelfUpdate") {}
+>()("piku/cloud/selfUpdate/ServerSelfUpdate") {}
 
 export const make = Effect.fn("cloud.server_self_update.make")(function* (options?: {
   readonly host?: Partial<ServerSelfUpdateHost>;
@@ -232,7 +231,7 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* (option
   )(function* (input, reportProgress = () => Effect.void) {
     if (capability === "desktop-managed") {
       return yield* failWith(
-        "This server is managed by the T3 Code desktop app on its machine; update the desktop app to update it.",
+        "This server is managed by the Piku Code desktop app on its machine; update the desktop app to update it.",
       );
     }
     if (capability === null) {
@@ -243,7 +242,7 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* (option
     const activeMethod = capability;
     const targetVersion = input.targetVersion.trim();
     if (!EXACT_VERSION_PATTERN.test(targetVersion)) {
-      return yield* failWith(`'${targetVersion}' is not an exact t3 version.`);
+      return yield* failWith(`'${targetVersion}' is not an exact piku version.`);
     }
 
     const alreadyRunning = yield* Ref.getAndSet(inFlight, true);
@@ -260,7 +259,9 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* (option
         path,
         runner,
       }).pipe(
-        Effect.mapError((error) => failWith("Could not install the requested t3 version.", error)),
+        Effect.mapError((error) =>
+          failWith("Could not install the requested piku version.", error),
+        ),
       );
 
       yield* reportProgress("installing");
@@ -274,7 +275,7 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* (option
         })
         .pipe(
           Effect.mapError((cause) =>
-            failWith(`Could not verify the installed t3@${targetVersion}.`, cause),
+            failWith(`Could not verify the installed piku@${targetVersion}.`, cause),
           ),
         );
       // Effect CLI's unstable formatVersion currently emits `${name} v${version}`.
@@ -291,13 +292,13 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* (option
           path,
         }).pipe(
           Effect.mapError((error) =>
-            failWith(`Could not remove the failed t3@${targetVersion} installation.`, error),
+            failWith(`Could not remove the failed piku@${targetVersion} installation.`, error),
           ),
         );
         return yield* failWith(
           preflight.code !== 0
-            ? `The installed t3@${targetVersion} failed its version check (exit code ${String(preflight.code)}).`
-            : `The installed runtime did not report the requested t3@${targetVersion} version.`,
+            ? `The installed piku@${targetVersion} failed its version check (exit code ${String(preflight.code)}).`
+            : `The installed runtime did not report the requested piku@${targetVersion} version.`,
         );
       }
 
@@ -313,7 +314,7 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* (option
         // still recognize the unit as current.
         const unit = renderBootServiceUnit({
           nodePath: host.execPath,
-          t3EntryPath: runtimePaths.entryPath,
+          pikuEntryPath: runtimePaths.entryPath,
           baseDir: serverConfig.baseDir,
           logPath: path.join(serverConfig.logsDir, "boot-service.log"),
           unitPath,
@@ -412,21 +413,21 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* (option
           .spawnDetached("/bin/sh", [
             "-c",
             'sleep 3; exec "$@"',
-            "t3-self-update",
+            "piku-self-update",
             host.execPath,
             runtimePaths.entryPath,
             ...host.cliArgs,
           ])
           .pipe(
             Effect.mapError((cause) =>
-              failWith("Could not start the replacement t3 process.", cause),
+              failWith("Could not start the replacement piku process.", cause),
             ),
           );
         yield* Effect.logInfo("Server self-update installed; respawning.", { targetVersion });
         yield* scheduleRestart(
           Effect.try({
             try: () => host.exitProcess(),
-            catch: (cause) => failWith("Could not exit the replaced t3 process.", cause),
+            catch: (cause) => failWith("Could not exit the replaced piku process.", cause),
           }).pipe(
             Effect.catch((error) =>
               Effect.logError("Server self-update could not exit the replaced process.").pipe(

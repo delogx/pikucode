@@ -3,15 +3,13 @@ import {
   BearerConnectionProfile,
   BearerConnectionTarget,
   RelayConnectionTarget,
-  SshConnectionProfile,
-  SshConnectionTarget,
-} from "@t3tools/client-runtime/connection";
+} from "@piku/client-runtime/connection";
 import {
   ConnectionCatalogDocument as RuntimeConnectionCatalogDocument,
   type ConnectionCatalogDocument as RuntimeConnectionCatalogDocumentType,
-} from "@t3tools/client-runtime/platform";
-import type { PersistedSavedEnvironmentRecord } from "@t3tools/contracts";
-import { fromLenientJson } from "@t3tools/shared/schemaJson";
+} from "@piku/client-runtime/platform";
+import type { PersistedSavedEnvironmentRecord } from "@piku/contracts";
+import { fromLenientJson } from "@piku/shared/schemaJson";
 import * as Context from "effect/Context";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
@@ -165,7 +163,7 @@ export class DesktopConnectionCatalogStore extends Context.Service<
     >;
     readonly clear: Effect.Effect<void>;
   }
->()("@t3tools/desktop/app/DesktopConnectionCatalogStore") {}
+>()("@piku/desktop/app/DesktopConnectionCatalogStore") {}
 
 function decodeSecretBytes(
   catalogPath: string,
@@ -281,7 +279,7 @@ const writeDocument = Effect.fn("desktop.connectionCatalogStore.writeDocument")(
   );
 });
 
-function connectionId(prefix: "bearer" | "ssh", environmentId: string): string {
+function connectionId(prefix: "bearer", environmentId: string): string {
   return `${prefix}:${environmentId}`;
 }
 
@@ -305,26 +303,6 @@ const migrateSavedEnvironmentRecords = Effect.fn(
         new RelayConnectionTarget({
           environmentId: record.environmentId,
           label: record.label,
-        }),
-      );
-      continue;
-    }
-
-    if (record.desktopSsh !== undefined) {
-      const id = connectionId("ssh", record.environmentId);
-      targets.push(
-        new SshConnectionTarget({
-          environmentId: record.environmentId,
-          label: record.label,
-          connectionId: id,
-        }),
-      );
-      profiles.push(
-        new SshConnectionProfile({
-          connectionId: id,
-          environmentId: record.environmentId,
-          label: record.label,
-          target: record.desktopSsh,
         }),
       );
       continue;

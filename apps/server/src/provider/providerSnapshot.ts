@@ -7,19 +7,17 @@ import type {
   ServerProviderSlashCommand,
   ServerProviderModel,
   ServerProviderState,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import * as Effect from "effect/Effect";
 import * as PlatformError from "effect/PlatformError";
-import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
-import { normalizeCustomModelSlug } from "@t3tools/shared/model";
-import { isWindowsCommandNotFound } from "../processRunner.ts";
+import { normalizeCustomModelSlug } from "@piku/shared/model";
 import { createProviderVersionAdvisory } from "./providerMaintenance.ts";
 import { collectUint8StreamText } from "../stream/collectUint8StreamText.ts";
 
 export const DEFAULT_TIMEOUT_MS = 4_000;
-// Auth status checks involve disk/network lookups and can be slow on first run (especially Windows)
+// Auth status checks involve disk/network lookups and can be slow on first run
 export const AUTH_PROBE_TIMEOUT_MS = 10_000;
 
 export interface CommandResult {
@@ -27,22 +25,6 @@ export interface CommandResult {
   readonly stderr: string;
   readonly code: number;
 }
-
-export class ProviderCommandNotFoundError extends Schema.TaggedErrorClass<ProviderCommandNotFoundError>()(
-  "ProviderCommandNotFoundError",
-  {
-    binaryPath: Schema.String,
-    exitCode: Schema.Number,
-    stdoutLength: Schema.Number,
-    stderrLength: Schema.Number,
-  },
-) {
-  override get message(): string {
-    return `Provider command ${this.binaryPath} was not found (exit code ${this.exitCode}).`;
-  }
-}
-
-const isProviderCommandNotFoundError = Schema.is(ProviderCommandNotFoundError);
 
 export interface ProviderProbeResult {
   readonly installed: boolean;
@@ -68,11 +50,10 @@ export function nonEmptyTrimmed(value: string | undefined): string | undefined {
 }
 
 export function isCommandMissingCause(error: unknown): boolean {
-  if (isProviderCommandNotFoundError(error)) return true;
   return error instanceof PlatformError.PlatformError && error.reason._tag === "NotFound";
 }
 
-export const spawnAndCollect = (binaryPath: string, command: ChildProcess.Command) =>
+export const spawnAndCollect = (command: ChildProcess.Command) =>
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const child = yield* spawner.spawn(command);
@@ -85,16 +66,7 @@ export const spawnAndCollect = (binaryPath: string, command: ChildProcess.Comman
       { concurrency: "unbounded" },
     );
 
-    const result: CommandResult = { stdout, stderr, code: exitCode };
-    if (yield* isWindowsCommandNotFound(exitCode, stderr)) {
-      return yield* new ProviderCommandNotFoundError({
-        binaryPath,
-        exitCode,
-        stdoutLength: stdout.length,
-        stderrLength: stderr.length,
-      });
-    }
-    return result;
+    return { stdout, stderr, code: exitCode } satisfies CommandResult;
   }).pipe(Effect.scoped);
 
 export function detailFromResult(

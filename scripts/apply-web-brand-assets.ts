@@ -59,7 +59,7 @@ export const applyWebBrandAssetsCommand = Command.make(
     applyWebBrandAssets(
       Option.getOrElse(brand, () =>
         Option.match(channel, {
-          onNone: () => "production" as const,
+          onNone: () => "nightly" as const,
           onSome: resolveWebAssetBrandForChannel,
         }),
       ),

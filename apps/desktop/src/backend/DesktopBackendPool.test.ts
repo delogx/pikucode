@@ -76,7 +76,6 @@ function makePoolLayer(
         Layer.succeed(DesktopBackendConfiguration.DesktopBackendConfiguration, {
           resolvePrimary: Effect.die("unexpected primary config resolve"),
           resolvePrimaryLabel: Ref.get(labelRef),
-          resolveWsl: () => Effect.die("unexpected WSL config resolve"),
         } satisfies DesktopBackendConfiguration.DesktopBackendConfiguration["Service"]),
         DesktopAppSettings.layerTest(),
         ElectronDialog.layer,
@@ -86,7 +85,6 @@ function makePoolLayer(
           revealOrCreateMain: Effect.die("unexpected window reveal"),
           activate: Effect.die("unexpected window activate"),
           createMainIfBackendReady: Effect.die("unexpected window create"),
-          showConnectingSplash: Effect.void,
           handleBackendReady: () => Effect.void,
           handleBackendNotReady: Effect.void,
           flushMainWindowBounds: Effect.void,
@@ -103,13 +101,13 @@ describe("DesktopBackendPool", () => {
     Effect.gen(function* () {
       const pool = yield* DesktopBackendPool.DesktopBackendPool;
       const fetchedPrimary = yield* pool.get(DesktopBackendPool.PRIMARY_INSTANCE_ID);
-      const fetchedWsl = yield* pool.get(DesktopBackendPool.BackendInstanceId("wsl:ubuntu"));
+      const fetchedSecondary = yield* pool.get(DesktopBackendPool.BackendInstanceId("secondary"));
       const fetchedMissing = yield* pool.get(DesktopBackendPool.BackendInstanceId("missing"));
       const all = yield* pool.list;
       const resolvedPrimary = yield* pool.primary;
 
-      assert.equal(yield* Option.getOrThrow(fetchedPrimary).label, "Windows");
-      assert.equal(yield* Option.getOrThrow(fetchedWsl).label, "WSL (Ubuntu)");
+      assert.equal(yield* Option.getOrThrow(fetchedPrimary).label, "Local environment");
+      assert.equal(yield* Option.getOrThrow(fetchedSecondary).label, "Secondary");
       assert.isTrue(Option.isNone(fetchedMissing));
       assert.lengthOf(all, 2);
       // First instance becomes primary in layerTest so single-instance
@@ -118,8 +116,8 @@ describe("DesktopBackendPool", () => {
     }).pipe(
       Effect.provide(
         DesktopBackendPool.layerTest([
-          makeStubInstance(DesktopBackendPool.PRIMARY_INSTANCE_ID, "Windows"),
-          makeStubInstance(DesktopBackendPool.BackendInstanceId("wsl:ubuntu"), "WSL (Ubuntu)"),
+          makeStubInstance(DesktopBackendPool.PRIMARY_INSTANCE_ID, "Local environment"),
+          makeStubInstance(DesktopBackendPool.BackendInstanceId("secondary"), "Secondary"),
         ]),
       ),
     ),
@@ -136,15 +134,15 @@ describe("DesktopBackendPool", () => {
   it.effect("resolves the primary label lazily after pool layer construction", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        const labelRef = yield* Ref.make("Windows");
+        const labelRef = yield* Ref.make("Local environment");
         const pool = yield* DesktopBackendPool.DesktopBackendPool.pipe(
           Effect.provide(makePoolLayer(labelRef)),
         );
         const primary = yield* pool.primary;
 
-        yield* Ref.set(labelRef, "WSL (Ubuntu)");
+        yield* Ref.set(labelRef, "Secondary");
 
-        assert.equal(yield* primary.label, "WSL (Ubuntu)");
+        assert.equal(yield* primary.label, "Secondary");
       }),
     ),
   );

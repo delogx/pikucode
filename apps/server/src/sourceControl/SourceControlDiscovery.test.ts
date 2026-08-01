@@ -4,32 +4,25 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { ChildProcessSpawner } from "effect/unstable/process";
-import { VcsProcessSpawnError } from "@t3tools/contracts";
+import { VcsProcessSpawnError } from "@piku/contracts";
 
 import * as ServerConfig from "../config.ts";
 import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
 import * as VcsProcess from "../vcs/VcsProcess.ts";
-import * as AzureDevOpsCli from "./AzureDevOpsCli.ts";
-import * as BitbucketApi from "./BitbucketApi.ts";
 import * as GitHubCli from "./GitHubCli.ts";
-import * as GitLabCli from "./GitLabCli.ts";
 import * as SourceControlDiscovery from "./SourceControlDiscovery.ts";
 import * as SourceControlProviderRegistry from "./SourceControlProviderRegistry.ts";
 
 const sourceControlProviderRegistryTestLayer = (input: {
-  readonly bitbucket: Partial<BitbucketApi.BitbucketApi["Service"]>;
   readonly process: Partial<VcsProcess.VcsProcess["Service"]>;
 }) =>
   SourceControlProviderRegistry.layer.pipe(
     Layer.provide(
       Layer.mergeAll(
         ServerConfig.layerTest(process.cwd(), {
-          prefix: "t3-source-control-registry-test-",
+          prefix: "piku-source-control-registry-test-",
         }).pipe(Layer.provide(NodeServices.layer)),
-        Layer.mock(AzureDevOpsCli.AzureDevOpsCli)({}),
-        Layer.mock(BitbucketApi.BitbucketApi)(input.bitbucket),
         Layer.mock(GitHubCli.GitHubCli)({}),
-        Layer.mock(GitLabCli.GitLabCli)({}),
         Layer.mock(VcsDriverRegistry.VcsDriverRegistry)({}),
         Layer.mock(VcsProcess.VcsProcess)(input.process),
       ),
@@ -92,23 +85,13 @@ it.effect("reports implemented tools separately from locally available executabl
   const testLayer = SourceControlDiscovery.layer.pipe(
     Layer.provide(
       ServerConfig.layerTest(process.cwd(), {
-        prefix: "t3-source-control-discovery-",
+        prefix: "piku-source-control-discovery-",
       }),
     ),
     Layer.provide(Layer.mock(VcsProcess.VcsProcess)(processMock)),
     Layer.provide(
       sourceControlProviderRegistryTestLayer({
         process: processMock,
-        bitbucket: {
-          probeAuth: Effect.succeed({
-            status: "unauthenticated",
-            account: Option.none(),
-            host: Option.some("bitbucket.org"),
-            detail: Option.some(
-              "Set T3CODE_BITBUCKET_EMAIL and T3CODE_BITBUCKET_API_TOKEN, or T3CODE_BITBUCKET_ACCESS_TOKEN.",
-            ),
-          }),
-        },
       }),
     ),
     Layer.provideMerge(NodeServices.layer),
@@ -143,29 +126,8 @@ it.effect("reports implemented tools separately from locally available executabl
           auth: "authenticated",
           account: Option.some("juliusmarminge"),
         },
-        {
-          kind: "gitlab",
-          status: "missing",
-          auth: "unknown",
-          account: Option.none(),
-        },
-        {
-          kind: "azure-devops",
-          status: "missing",
-          auth: "unknown",
-          account: Option.none(),
-        },
-        {
-          kind: "bitbucket",
-          status: "available",
-          auth: "unauthenticated",
-          account: Option.none(),
-        },
       ],
     );
-    const bitbucket = result.sourceControlProviders.find((item) => item.kind === "bitbucket");
-    assert.ok(bitbucket);
-    assert.strictEqual(bitbucket.executable, undefined);
   }).pipe(Effect.provide(testLayer));
 });
 
@@ -195,19 +157,6 @@ it.effect("probes provider authentication without exposing token details", () =>
           ),
         );
       }
-      if (input.command === "glab" && input.args.join(" ") === "auth status") {
-        return Effect.succeed(
-          processOutput(`gitlab.com
-Logged in to gitlab.com as gitlab-user
-`),
-        );
-      }
-      if (
-        input.command === "az" &&
-        input.args.join(" ") === "account show --query user.name -o tsv"
-      ) {
-        return Effect.succeed(processOutput("azure-user@example.com\n"));
-      }
       return Effect.fail(
         new VcsProcessSpawnError({
           operation: input.operation,
@@ -221,21 +170,13 @@ Logged in to gitlab.com as gitlab-user
   const testLayer = SourceControlDiscovery.layer.pipe(
     Layer.provide(
       ServerConfig.layerTest(process.cwd(), {
-        prefix: "t3-source-control-auth-discovery-",
+        prefix: "piku-source-control-auth-discovery-",
       }),
     ),
     Layer.provide(Layer.mock(VcsProcess.VcsProcess)(processMock)),
     Layer.provide(
       sourceControlProviderRegistryTestLayer({
         process: processMock,
-        bitbucket: {
-          probeAuth: Effect.succeed({
-            status: "authenticated",
-            account: Option.some("bitbucket-user"),
-            host: Option.some("bitbucket.org"),
-            detail: Option.none(),
-          }),
-        },
       }),
     ),
     Layer.provideMerge(NodeServices.layer),
@@ -257,24 +198,6 @@ Logged in to gitlab.com as gitlab-user
           kind: "github",
           auth: "authenticated",
           account: Option.some("octocat"),
-          detail: Option.none(),
-        },
-        {
-          kind: "gitlab",
-          auth: "authenticated",
-          account: Option.some("gitlab-user"),
-          detail: Option.none(),
-        },
-        {
-          kind: "azure-devops",
-          auth: "authenticated",
-          account: Option.some("azure-user@example.com"),
-          detail: Option.none(),
-        },
-        {
-          kind: "bitbucket",
-          auth: "authenticated",
-          account: Option.some("bitbucket-user"),
           detail: Option.none(),
         },
       ],

@@ -4,8 +4,8 @@ import {
   ProviderDriverKind,
   ProviderInstanceId,
   type ServerProvider,
-} from "@t3tools/contracts";
-import { createModelCapabilities } from "@t3tools/shared/model";
+} from "@piku/contracts";
+import { createModelCapabilities } from "@piku/shared/model";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -22,7 +22,6 @@ import {
 const emptyCapabilities = createModelCapabilities({ optionDescriptors: [] });
 const CODEX_DRIVER = ProviderDriverKind.make("codex");
 const CLAUDE_AGENT_DRIVER = ProviderDriverKind.make("claudeAgent");
-const OPENCODE_DRIVER = ProviderDriverKind.make("opencode");
 
 const makeProvider = (
   provider: ProviderDriverKind,
@@ -55,7 +54,7 @@ it.layer(NodeServices.layer)("providerStatusCache", (it) => {
 
     return Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-provider-cache-invalid-" });
+      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "piku-provider-cache-invalid-" });
       const cachePath = `${tempDir}/provider.json`;
       const secretCacheValue = "secret-cache-value";
       yield* fs.writeFileString(cachePath, `{ "token": "${secretCacheValue}" }`);
@@ -79,15 +78,11 @@ it.layer(NodeServices.layer)("providerStatusCache", (it) => {
   it.effect("writes and reads provider status snapshots", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-provider-cache-" });
+      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "piku-provider-cache-" });
       const codexProvider = makeProvider(CODEX_DRIVER);
       const claudeProvider = makeProvider(CLAUDE_AGENT_DRIVER, {
         status: "warning",
         auth: { status: "unknown" },
-      });
-      const openCodeProvider = makeProvider(OPENCODE_DRIVER, {
-        status: "warning",
-        auth: { status: "unknown", type: "opencode" },
       });
       const codexPath = yield* resolveProviderStatusCachePath({
         cacheDir: tempDir,
@@ -96,10 +91,6 @@ it.layer(NodeServices.layer)("providerStatusCache", (it) => {
       const claudePath = yield* resolveProviderStatusCachePath({
         cacheDir: tempDir,
         instanceId: defaultInstanceIdForDriver(ProviderDriverKind.make("claudeAgent")),
-      });
-      const openCodePath = yield* resolveProviderStatusCachePath({
-        cacheDir: tempDir,
-        instanceId: defaultInstanceIdForDriver(ProviderDriverKind.make("opencode")),
       });
 
       yield* writeProviderStatusCache({
@@ -110,14 +101,9 @@ it.layer(NodeServices.layer)("providerStatusCache", (it) => {
         filePath: claudePath,
         provider: claudeProvider,
       });
-      yield* writeProviderStatusCache({
-        filePath: openCodePath,
-        provider: openCodeProvider,
-      });
 
       assert.deepStrictEqual(yield* readProviderStatusCache(codexPath), codexProvider);
       assert.deepStrictEqual(yield* readProviderStatusCache(claudePath), claudeProvider);
-      assert.deepStrictEqual(yield* readProviderStatusCache(openCodePath), openCodeProvider);
     }),
   );
 
@@ -193,7 +179,7 @@ it.layer(NodeServices.layer)("providerStatusCache", (it) => {
       version: null,
       status: "disabled",
       auth: { status: "unknown" },
-      message: "Codex is disabled in T3 Code settings.",
+      message: "Codex is disabled in Piku Code settings.",
     });
 
     assert.deepStrictEqual(

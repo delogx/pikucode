@@ -1,8 +1,8 @@
 import * as NodeNet from "node:net";
 
 import { it as effectIt } from "@effect/vitest";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import * as Net from "@t3tools/shared/Net";
+import { HostProcessPlatform } from "@piku/shared/hostProcess";
+import * as Net from "@piku/shared/Net";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -23,7 +23,7 @@ const TestProcessRunner = Layer.succeed(ProcessRunner.ProcessRunner, {
           _tag: "NotFound",
           module: "ChildProcess",
           method: "spawn",
-          description: "PowerShell is not installed in the test environment",
+          description: "lsof is not installed in the test environment",
         }),
       }),
     ),
@@ -47,7 +47,7 @@ const makeProbeFailureLayer = (run: ProcessRunner.ProcessRunner["Service"]["run"
 
 const TestPortDiscoveryLive = PortScanner.layer.pipe(
   Layer.provide(
-    Layer.mergeAll(TestProcessRunner, Net.layer, Layer.succeed(HostProcessPlatform, "win32")),
+    Layer.mergeAll(TestProcessRunner, Net.layer, Layer.succeed(HostProcessPlatform, "linux")),
   ),
 );
 
@@ -88,9 +88,9 @@ const commonDevServer = Effect.acquireRelease(
 );
 
 /**
- * Integration tests against a real TCP listener. We provide the Windows host
- * platform so the tests exercise the TCP-probe fallback without depending on
- * `lsof` being installed.
+ * Integration tests against a real TCP listener. The process runner always
+ * fails to spawn `lsof` so the tests exercise the TCP-probe fallback without
+ * depending on `lsof` being installed.
  */
 effectIt.layer(TestPortDiscoveryLive)("PortDiscovery integration (TCP probe fallback)", (it) => {
   it.effect(

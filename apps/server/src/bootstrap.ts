@@ -9,8 +9,8 @@ import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { decodeJsonResult } from "@t3tools/shared/schemaJson";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import { decodeJsonResult } from "@piku/shared/schemaJson";
+import { HostProcessPlatform } from "@piku/shared/hostProcess";
 
 export class BootstrapFdStatError extends Schema.TaggedErrorClass<BootstrapFdStatError>()(
   "BootstrapFdStatError",
@@ -222,9 +222,9 @@ const makeDirectBootstrapStream = (fd: number): NodeStream.Readable => {
   }
 };
 
-// Stdin pipes inherited across the wsl.exe boundary report EACCES when we try
-// to re-open them via /proc/self/fd/0 — fall back to reading the fd directly
-// in that case, the same way we already do for ENXIO/EINVAL/EPERM.
+// Some inherited stdin pipes report EACCES when we try to re-open them via
+// /proc/self/fd/0 — fall back to reading the fd directly in that case, the
+// same way we already do for ENXIO/EINVAL/EPERM.
 const isBootstrapFdPathDuplicationError = Predicate.compose(
   Predicate.hasProperty("code"),
   (_) => _.code === "ENXIO" || _.code === "EINVAL" || _.code === "EPERM" || _.code === "EACCES",
@@ -233,9 +233,6 @@ const isBootstrapFdPathDuplicationError = Predicate.compose(
 function resolveFdPath(fd: number, platform: NodeJS.Platform): string | undefined {
   if (platform === "linux") {
     return `/proc/self/fd/${fd}`;
-  }
-  if (platform === "win32") {
-    return undefined;
   }
   return `/dev/fd/${fd}`;
 }

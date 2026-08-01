@@ -16,16 +16,15 @@ import {
   type EnvironmentId,
   ServerSettings,
   type ServerSettingsPatch,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import {
   type ClientSettingsPatch,
   type ClientSettings,
   DEFAULT_CLIENT_SETTINGS,
   type EnvironmentIdentificationMode,
   type UnifiedSettings,
-} from "@t3tools/contracts/settings";
-import { safeErrorLogAttributes } from "@t3tools/client-runtime/errors";
-import { APP_STAGE_LABEL } from "~/branding";
+} from "@piku/contracts/settings";
+import { safeErrorLogAttributes } from "@piku/client-runtime/errors";
 import { resolveSidebarV2Enabled } from "~/branding.logic";
 import { ensureLocalApi } from "~/localApi";
 import * as Struct from "effect/Struct";
@@ -257,7 +256,6 @@ export function useSidebarV2Enabled(): boolean {
         enabled: settings.sidebarV2Enabled,
         configuredByUser: settings.sidebarV2ConfiguredByUser,
         settingsHydrated,
-        stageLabel: APP_STAGE_LABEL,
       }),
     [settings.sidebarV2Enabled, settings.sidebarV2ConfiguredByUser, settingsHydrated],
   );

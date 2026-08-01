@@ -16,9 +16,8 @@ import {
   resolveWebIconOverrides,
 } from "../../../scripts/lib/brand-assets.ts";
 import { resolveCatalogDependencies } from "../../../scripts/lib/resolve-catalog.ts";
-import { fromJsonStringPretty } from "@t3tools/shared/schemaJson";
-import { fromYaml } from "@t3tools/shared/schemaYaml";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
+import { fromJsonStringPretty } from "@piku/shared/schemaJson";
+import { fromYaml } from "@piku/shared/schemaYaml";
 import serverPackageJson from "../package.json" with { type: "json" };
 import {
   ServerCliBuildAssetMissingError,
@@ -190,7 +189,7 @@ const createVpPmPublishArgs = (config: PublishCommandConfig): ReadonlyArray<stri
   const args = [
     "publish",
     "--filter",
-    "t3",
+    "piku",
     "--access",
     config.access,
     "--tag",
@@ -207,7 +206,8 @@ const createVpPmPublishArgs = (config: PublishCommandConfig): ReadonlyArray<stri
 const publishCmd = Command.make(
   "publish",
   {
-    tag: Flag.string("tag").pipe(Flag.withDefault("latest")),
+    // npm dist-tag for `pnpm publish`. Nightly is the only channel we publish.
+    tag: Flag.string("tag").pipe(Flag.withDefault("nightly")),
     access: Flag.string("access").pipe(Flag.withDefault("public")),
     appVersion: Flag.string("app-version").pipe(Flag.optional),
     provenance: Flag.boolean("provenance").pipe(Flag.withDefault(false)),
@@ -274,15 +274,12 @@ const publishCmd = Command.make(
             yield* Effect.log("[cli] Applied package metadata and publish icon overrides");
 
             const args = createVpPmPublishArgs(config);
-            const spawnCommand = yield* resolveSpawnCommand("vp", ["pm", ...args]);
-
             yield* Effect.log(`[cli] Running: vp pm ${args.join(" ")}`);
             yield* runCommand(
-              ChildProcess.make(spawnCommand.command, spawnCommand.args, {
+              ChildProcess.make("vp", ["pm", ...args], {
                 cwd: repoRoot,
                 stdout: config.verbose ? "inherit" : "ignore",
                 stderr: "inherit",
-                shell: spawnCommand.shell,
               }),
             );
           }),
@@ -304,7 +301,7 @@ const publishCmd = Command.make(
 // ---------------------------------------------------------------------------
 
 const cli = Command.make("cli").pipe(
-  Command.withDescription("T3 server build & publish CLI."),
+  Command.withDescription("Piku server build & publish CLI."),
   Command.withSubcommands([buildCmd, publishCmd]),
 );
 

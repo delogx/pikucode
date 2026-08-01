@@ -2,7 +2,7 @@ import {
   HostProcessArchitecture,
   HostProcessEnvironment,
   HostProcessPlatform,
-} from "@t3tools/shared/hostProcess";
+} from "@piku/shared/hostProcess";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -60,11 +60,9 @@ export class ResourceMonitorBinary extends Context.Service<
   {
     readonly resolve: Effect.Effect<string, ResourceMonitorBinaryError>;
   }
->()("t3/resourceTelemetry/ResourceMonitorBinary") {}
+>()("piku/resourceTelemetry/ResourceMonitorBinary") {}
 
-function binaryName(platform: NodeJS.Platform): string {
-  return platform === "win32" ? "t3-resource-monitor.exe" : "t3-resource-monitor";
-}
+const RESOURCE_MONITOR_BINARY_NAME = "piku-resource-monitor";
 
 export type ResourceMonitorLinuxLibc = "gnu" | "musl";
 
@@ -84,7 +82,7 @@ function detectResourceMonitorLinuxLibc(): ResourceMonitorLinuxLibc {
 }
 
 export const ResourceMonitorHostLinuxLibc = Context.Reference<ResourceMonitorLinuxLibc>(
-  "t3/resourceTelemetry/ResourceMonitorHostLinuxLibc",
+  "piku/resourceTelemetry/ResourceMonitorHostLinuxLibc",
   {
     defaultValue: detectResourceMonitorLinuxLibc,
   },
@@ -95,7 +93,7 @@ export function resourceMonitorPlatformKey(
   architecture: NodeJS.Architecture,
 ): string | undefined {
   if (
-    (platform !== "darwin" && platform !== "linux" && platform !== "win32") ||
+    (platform !== "darwin" && platform !== "linux") ||
     (architecture !== "arm64" && architecture !== "x64")
   ) {
     return undefined;
@@ -125,13 +123,6 @@ export function resourceMonitorRustTarget(
         ? "x86_64-unknown-linux-gnu"
         : undefined;
   }
-  if (platform === "win32") {
-    return architecture === "arm64"
-      ? "aarch64-pc-windows-msvc"
-      : architecture === "x64"
-        ? "x86_64-pc-windows-msvc"
-        : undefined;
-  }
   return undefined;
 }
 
@@ -143,11 +134,11 @@ export const make = Effect.fn("resourceTelemetry.resourceMonitorBinary.make")(fu
   const architecture = yield* HostProcessArchitecture;
   const environment = yield* HostProcessEnvironment;
   const linuxLibc = yield* ResourceMonitorHostLinuxLibc;
-  const executableName = binaryName(platform);
+  const executableName = RESOURCE_MONITOR_BINARY_NAME;
   const platformKey = resourceMonitorPlatformKey(platform, architecture);
   const rustTarget = resourceMonitorRustTarget(platform, architecture, linuxLibc);
   const overrideCandidates = [
-    environment.T3CODE_RESOURCE_MONITOR_PATH,
+    environment.PIKU_RESOURCE_MONITOR_PATH,
     config.resourceMonitorPath,
   ].filter((candidate): candidate is string => Boolean(candidate));
   const bundledCandidates =
@@ -200,14 +191,12 @@ export const make = Effect.fn("resourceTelemetry.resourceMonitorBinary.make")(fu
       const exists = yield* fileSystem.exists(candidate).pipe(Effect.orElseSucceed(() => false));
       if (!exists) continue;
 
-      if (platform !== "win32") {
-        const stat = yield* fileSystem.stat(candidate).pipe(Effect.option);
-        if (Option.isSome(stat) && (stat.value.mode & 0o111) === 0) {
-          return yield* new ResourceMonitorBinaryNotExecutable({
-            path: candidate,
-            mode: stat.value.mode,
-          });
-        }
+      const stat = yield* fileSystem.stat(candidate).pipe(Effect.option);
+      if (Option.isSome(stat) && (stat.value.mode & 0o111) === 0) {
+        return yield* new ResourceMonitorBinaryNotExecutable({
+          path: candidate,
+          mode: stat.value.mode,
+        });
       }
 
       return candidate;

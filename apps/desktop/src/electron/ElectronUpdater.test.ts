@@ -8,7 +8,7 @@ const { autoUpdaterMock } = vi.hoisted(() => ({
     allowPrerelease: false,
     autoDownload: true,
     autoInstallOnAppQuit: true,
-    channel: "latest",
+    channel: "nightly",
     disableDifferentialDownload: false,
     fullChangelog: false,
     checkForUpdates: vi.fn(() => Promise.resolve(null)),
@@ -32,7 +32,7 @@ describe("ElectronUpdater", () => {
     autoUpdaterMock.allowPrerelease = false;
     autoUpdaterMock.autoDownload = true;
     autoUpdaterMock.autoInstallOnAppQuit = true;
-    autoUpdaterMock.channel = "latest";
+    autoUpdaterMock.channel = "nightly";
     autoUpdaterMock.disableDifferentialDownload = false;
     autoUpdaterMock.fullChangelog = false;
     autoUpdaterMock.checkForUpdates.mockClear();

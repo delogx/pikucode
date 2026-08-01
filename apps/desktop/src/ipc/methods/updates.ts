@@ -1,9 +1,8 @@
 import {
   DesktopUpdateActionResultSchema,
-  DesktopUpdateChannelSchema,
   DesktopUpdateCheckResultSchema,
   DesktopUpdateStateSchema,
-} from "@t3tools/contracts";
+} from "@piku/contracts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -18,16 +17,6 @@ export const getUpdateState = DesktopIpc.makeIpcMethod({
   handler: Effect.fn("desktop.ipc.updates.getState")(function* () {
     const updates = yield* DesktopUpdates.DesktopUpdates;
     return yield* updates.getState;
-  }),
-});
-
-export const setUpdateChannel = DesktopIpc.makeIpcMethod({
-  channel: IpcChannels.UPDATE_SET_CHANNEL_CHANNEL,
-  payload: DesktopUpdateChannelSchema,
-  result: DesktopUpdateStateSchema,
-  handler: Effect.fn("desktop.ipc.updates.setChannel")(function* (channel) {
-    const updates = yield* DesktopUpdates.DesktopUpdates;
-    return yield* updates.setChannel(channel);
   }),
 });
 

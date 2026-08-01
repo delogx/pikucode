@@ -1,5 +1,5 @@
 {
-  "name": "@t3tools/shared",
+  "name": "@piku/shared",
   "private": true,
   "type": "module",
   "exports": {
@@ -91,9 +91,9 @@
       "types": "./src/projectScripts.ts",
       "import": "./src/projectScripts.ts"
     },
-    "./t3ProjectFile": {
-      "types": "./src/t3ProjectFile.ts",
-      "import": "./src/t3ProjectFile.ts"
+    "./pikuProjectFile": {
+      "types": "./src/pikuProjectFile.ts",
+      "import": "./src/pikuProjectFile.ts"
     },
     "./orchestrationTiming": {
       "types": "./src/orchestrationTiming.ts",
@@ -215,7 +215,7 @@
   "dependencies": {
     "@noble/curves": "catalog:",
     "@noble/hashes": "catalog:",
-    "@t3tools/contracts": "workspace:*",
+    "@piku/contracts": "workspace:*",
     "effect": "catalog:",
     "jose": "catalog:",
     "yaml": "catalog:"

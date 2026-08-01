@@ -91,6 +91,7 @@ const backgroundCapableTurnItemTypes: ReadonlySet<OrchestrationV2TurnItem["type"
   "command_execution",
   "dynamic_tool",
   "subagent",
+  "workflow",
 ]);
 
 function isTerminalTurnItemStatus(status: OrchestrationV2TurnItem["status"]): boolean {
@@ -102,7 +103,10 @@ function isTerminalTurnItemStatus(status: OrchestrationV2TurnItem["status"]): bo
   );
 }
 
-type SubagentTurnItem = Extract<OrchestrationV2TurnItem, { readonly type: "subagent" }>;
+type SubagentTurnItem = Extract<
+  OrchestrationV2TurnItem,
+  { readonly type: "subagent" | "workflow" }
+>;
 
 type OpenRunOwnedSubagentProjection = {
   readonly subagents: ReadonlyMap<NodeId, OrchestrationV2Subagent>;
@@ -915,7 +919,10 @@ export const layer: Layer.Layer<
                     return { ...current, childTurnItems };
                   });
                 }
-                if (belongsToRootRun && event.turnItem.type === "subagent") {
+                if (
+                  belongsToRootRun &&
+                  (event.turnItem.type === "subagent" || event.turnItem.type === "workflow")
+                ) {
                   const subagentItem = event.turnItem;
                   yield* Ref.update(openRunOwnedSubagents, (current) => {
                     const withLink = withLinkedChildThreadId(current, subagentItem.childThreadId);

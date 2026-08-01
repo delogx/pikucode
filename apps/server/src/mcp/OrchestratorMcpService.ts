@@ -594,6 +594,12 @@ function turnItemText(item: OrchestrationV2TurnItem): string | null {
       return `Created thread ${item.targetThreadId} with ${item.targetProviderInstanceId} (${item.targetModel}).`;
     case "subagent":
       return item.result ?? item.progress ?? item.prompt;
+    case "workflow":
+      return (
+        item.result ??
+        item.progress ??
+        [item.workflowName, item.description].filter((line) => line.length > 0).join(": ")
+      );
     case "dynamic_tool":
       return jsonText({ toolName: item.toolName, input: item.input, output: item.output });
   }

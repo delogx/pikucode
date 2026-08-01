@@ -2990,6 +2990,298 @@ describe("ClaudeAdapterV2 background wake turns", () => {
       }).pipe(Effect.provide(Layer.merge(idAllocatorLayer, NodeServices.layer))),
     ),
   );
+
+  it.effect("projects a dynamic workflow run as a workflow turn item", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const WORKFLOW_TASK_ID = "task-workflow-demo";
+        const WORKFLOW_TOOL_USE_ID = "toolu-workflow-demo";
+        const WORKFLOW_SCRIPT = `export const meta = {
+  name: 'capture-demo',
+  description: 'Tiny two-phase demo workflow',
+  phases: [
+    { title: 'Gather', detail: 'two trivial questions' },
+    { title: 'Summarize', detail: 'combine answers' },
+  ],
+}
+phase('Gather')
+return null
+`;
+        const workflowTaskStarted = claudeSdkFrame({
+          type: "system",
+          subtype: "task_started",
+          task_id: WORKFLOW_TASK_ID,
+          tool_use_id: WORKFLOW_TOOL_USE_ID,
+          description: "Tiny two-phase demo workflow",
+          task_type: "local_workflow",
+          workflow_name: "capture-demo",
+          prompt: WORKFLOW_SCRIPT,
+          uuid: "00000000-0000-4000-8000-000000000601",
+          session_id: WAKE_NATIVE_SESSION,
+        });
+        const workflowProgress = claudeSdkFrame({
+          type: "system",
+          subtype: "task_progress",
+          task_id: WORKFLOW_TASK_ID,
+          tool_use_id: WORKFLOW_TOOL_USE_ID,
+          description: "Gather: Color",
+          usage: { total_tokens: 9072, tool_uses: 0, duration_ms: 1352 },
+          last_tool_name: "Color",
+          summary: "Tiny two-phase demo workflow",
+          workflow_progress: [
+            { type: "workflow_phase", index: 1, title: "Gather" },
+            { type: "workflow_phase", index: 2, title: "Summarize" },
+            {
+              type: "workflow_agent",
+              index: 1,
+              label: "Color",
+              phaseIndex: 1,
+              phaseTitle: "Gather",
+              agentId: "a52d2271990893039",
+              model: "claude-haiku-4-5-20251001",
+              state: "done",
+              startedAt: 1785596516122,
+              attempt: 1,
+              promptPreview: "Reply with exactly blue.",
+              tokens: 9072,
+              toolCalls: 0,
+              durationMs: 1283,
+              resultPreview: "blue",
+            },
+            {
+              type: "workflow_agent",
+              index: 2,
+              label: "Number",
+              phaseIndex: 1,
+              phaseTitle: "Gather",
+              agentId: "ad4bb65c716ec7f54",
+              model: "claude-haiku-4-5-20251001",
+              state: "start",
+              startedAt: 1785596516127,
+              attempt: 1,
+            },
+          ],
+          uuid: "00000000-0000-4000-8000-000000000602",
+          session_id: WAKE_NATIVE_SESSION,
+        });
+        const workflowNotification = claudeSdkFrame({
+          type: "system",
+          subtype: "task_notification",
+          task_id: WORKFLOW_TASK_ID,
+          tool_use_id: WORKFLOW_TOOL_USE_ID,
+          status: "completed",
+          output_file: "/tmp/task-workflow-demo.output",
+          summary: 'Dynamic workflow "Tiny two-phase demo workflow" completed',
+          usage: { total_tokens: 27_217, tool_uses: 0, duration_ms: 3778 },
+          uuid: "00000000-0000-4000-8000-000000000603",
+          session_id: WAKE_NATIVE_SESSION,
+        });
+
+        const harness = yield* makeWakeHarness;
+        const now = yield* DateTime.now;
+        const workflowItems = () =>
+          harness.events.flatMap((event) =>
+            event.type === "turn_item.updated" && event.turnItem.type === "workflow"
+              ? [event.turnItem]
+              : [],
+          );
+
+        yield* harness.runtime.startTurn(
+          makeClaudeTestTurnInput({
+            threadId: harness.threadId,
+            providerThread: harness.providerThread,
+            now,
+            attemptId: RunAttemptId.make("attempt-claude-workflow-1"),
+            text: "Run the demo workflow.",
+            attachments: [],
+          }),
+        );
+
+        yield* Queue.offer(harness.sdkMessages, workflowTaskStarted);
+        yield* awaitUntil(() => workflowItems().length >= 1, "workflow item created");
+        const startedItem = workflowItems().at(-1);
+        assert.equal(startedItem?.status, "running");
+        assert.equal(startedItem?.workflowName, "capture-demo");
+        assert.equal(startedItem?.description, "Tiny two-phase demo workflow");
+        assert.equal(startedItem?.script, WORKFLOW_SCRIPT);
+        // Declared phases are recovered from the script's meta literal
+        // before any agent starts.
+        assert.deepEqual(startedItem?.phases, [
+          { index: 1, title: "Gather", detail: "two trivial questions" },
+          { index: 2, title: "Summarize", detail: "combine answers" },
+        ]);
+        assert.deepEqual(startedItem?.agents, []);
+        // No generic subagent item may be emitted for a workflow task.
+        assert.isFalse(
+          harness.events.some(
+            (event) => event.type === "turn_item.updated" && event.turnItem.type === "subagent",
+          ),
+        );
+
+        yield* Queue.offer(harness.sdkMessages, workflowProgress);
+        yield* awaitUntil(
+          () => (workflowItems().at(-1)?.agents.length ?? 0) === 2,
+          "workflow agents projected",
+        );
+        const progressItem = workflowItems().at(-1);
+        assert.equal(progressItem?.progress, "Gather: Color");
+        assert.equal(progressItem?.totalTokens, 9072);
+        assert.equal(progressItem?.durationMs, 1352);
+        assert.deepEqual(progressItem?.agents[0], {
+          index: 1,
+          label: "Color",
+          phaseIndex: 1,
+          phaseTitle: "Gather",
+          model: "claude-haiku-4-5-20251001",
+          status: "completed",
+          promptPreview: "Reply with exactly blue.",
+          resultPreview: "blue",
+          totalTokens: 9072,
+          toolUses: 0,
+          durationMs: 1283,
+        });
+        assert.equal(progressItem?.agents[1]?.status, "running");
+        // The wire snapshot keeps the meta detail by phase index.
+        assert.deepEqual(progressItem?.phases, [
+          { index: 1, title: "Gather", detail: "two trivial questions" },
+          { index: 2, title: "Summarize", detail: "combine answers" },
+        ]);
+
+        // The root turn settles while the workflow keeps running: the item
+        // pins background work like any other background task.
+        yield* Queue.offer(
+          harness.sdkMessages,
+          makeResultFrame({
+            uuid: "00000000-0000-4000-8000-000000000604",
+            result: "Launched the workflow in the background.",
+          }),
+        );
+        yield* awaitUntil(() => harness.terminalEvents().length === 1, "root turn terminal");
+        assert.isTrue(yield* harness.hasPendingBackgroundWork);
+
+        // Progress that arrives after the root turn settled still projects
+        // live: the settled path re-emits the workflow item from the session
+        // registry instead of dropping the frame.
+        yield* Queue.offer(
+          harness.sdkMessages,
+          claudeSdkFrame({
+            type: "system",
+            subtype: "task_progress",
+            task_id: WORKFLOW_TASK_ID,
+            tool_use_id: WORKFLOW_TOOL_USE_ID,
+            description: "Summarize: Synthesis",
+            usage: { total_tokens: 18_145, tool_uses: 0, duration_ms: 2613 },
+            last_tool_name: "Synthesis",
+            summary: "Tiny two-phase demo workflow",
+            workflow_progress: [
+              { type: "workflow_phase", index: 1, title: "Gather" },
+              { type: "workflow_phase", index: 2, title: "Summarize" },
+              {
+                type: "workflow_agent",
+                index: 1,
+                label: "Color",
+                phaseIndex: 1,
+                phaseTitle: "Gather",
+                model: "claude-haiku-4-5-20251001",
+                state: "done",
+                tokens: 9072,
+                toolCalls: 0,
+                durationMs: 1283,
+                resultPreview: "blue",
+              },
+              {
+                type: "workflow_agent",
+                index: 2,
+                label: "Number",
+                phaseIndex: 1,
+                phaseTitle: "Gather",
+                model: "claude-haiku-4-5-20251001",
+                state: "done",
+                tokens: 9073,
+                toolCalls: 0,
+                durationMs: 1536,
+                resultPreview: "four",
+              },
+              {
+                type: "workflow_agent",
+                index: 3,
+                label: "Synthesis",
+                phaseIndex: 2,
+                phaseTitle: "Summarize",
+                model: "claude-haiku-4-5-20251001",
+                state: "start",
+              },
+            ],
+            uuid: "00000000-0000-4000-8000-000000000606",
+            session_id: WAKE_NATIVE_SESSION,
+          }),
+        );
+        yield* awaitUntil(
+          () => (workflowItems().at(-1)?.agents.length ?? 0) === 3,
+          "post-settle workflow progress projected",
+        );
+        const settledProgressItem = workflowItems().at(-1);
+        assert.equal(settledProgressItem?.status, "running");
+        assert.equal(settledProgressItem?.progress, "Summarize: Synthesis");
+        assert.equal(settledProgressItem?.totalTokens, 18_145);
+        assert.equal(settledProgressItem?.agents[2]?.label, "Synthesis");
+        assert.equal(settledProgressItem?.agents[2]?.status, "running");
+
+        // The workflow completion wakes the parent thread; the buffered
+        // notification replays into the continuation turn and terminalizes
+        // the workflow item there.
+        yield* Queue.offer(harness.sdkMessages, workflowNotification);
+        yield* awaitUntil(
+          () => harness.continuationRequests.length === 1,
+          "workflow continuation request",
+        );
+        assert.equal(
+          harness.continuationRequests[0]?.detail,
+          'Dynamic workflow "Tiny two-phase demo workflow" completed',
+        );
+        yield* Queue.offer(
+          harness.sdkMessages,
+          makeResultFrame({
+            uuid: "00000000-0000-4000-8000-000000000605",
+            result: "The workflow finished.",
+          }),
+        );
+        yield* harness.runtime.startTurn(
+          makeClaudeTestTurnInput({
+            threadId: harness.threadId,
+            providerThread: harness.providerThread,
+            now,
+            attemptId: RunAttemptId.make("attempt-claude-workflow-2"),
+            text: "Background task completed.",
+            attachments: [],
+            providerTurnOrdinal: 2,
+            messageCreatedBy: "agent",
+            messageCreationSource: "provider",
+          }),
+        );
+        yield* awaitUntil(
+          () => workflowItems().at(-1)?.status === "completed",
+          "workflow item terminal",
+        );
+        const terminalItem = workflowItems().at(-1);
+        assert.equal(
+          terminalItem?.result,
+          'Dynamic workflow "Tiny two-phase demo workflow" completed',
+        );
+        assert.equal(terminalItem?.totalTokens, 27_217);
+        assert.equal(terminalItem?.durationMs, 3778);
+        // The agent whose final snapshot was missed folds to the outcome the
+        // completed workflow implies.
+        assert.equal(terminalItem?.agents[2]?.status, "completed");
+        // The replayed item keeps the phase/agent state accumulated across
+        // the live turn and the settled window.
+        assert.lengthOf(terminalItem?.agents ?? [], 3);
+        assert.lengthOf(terminalItem?.phases ?? [], 2);
+        yield* awaitUntil(() => harness.terminalEvents().length === 2, "continuation terminal");
+        assert.isFalse(yield* harness.hasPendingBackgroundWork);
+      }).pipe(Effect.provide(Layer.merge(idAllocatorLayer, NodeServices.layer))),
+    ),
+  );
 });
 
 describe("ClaudeAdapterV2 query message stream", () => {

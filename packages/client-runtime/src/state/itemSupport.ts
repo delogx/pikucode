@@ -85,7 +85,7 @@ export function resolveV2ItemSupport(projection: Projection, itemId: TurnItemId)
       ? (projection.checkpoints.find((candidate) => candidate.id === item.checkpointId) ?? null)
       : null;
   const subagent =
-    item.type === "subagent"
+    item.type === "subagent" || item.type === "workflow"
       ? (projection.subagents.find((candidate) => candidate.id === item.subagentId) ?? null)
       : null;
   const contextHandoff =

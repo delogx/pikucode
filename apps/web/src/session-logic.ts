@@ -317,12 +317,14 @@ const STANDALONE_V2_ITEM_TYPES = new Set<OrchestrationV2ProjectedTurnItem["item"
   "subagent",
   "thread_created",
   "user_input_request",
+  "workflow",
 ]);
 
 const PERSISTENT_RESOURCE_V2_ITEM_TYPES = new Set<OrchestrationV2TurnItem["type"]>([
   "fork",
   "subagent",
   "thread_created",
+  "workflow",
 ]);
 
 export function timelineEntryIsPersistentResourceCard(entry: TimelineEntry): boolean {
@@ -363,6 +365,7 @@ function projectedWorkEntryTone(item: OrchestrationV2TurnItem): WorkLogEntry["to
     case "web_search":
     case "dynamic_tool":
     case "subagent":
+    case "workflow":
       return "tool";
     default:
       return "info";

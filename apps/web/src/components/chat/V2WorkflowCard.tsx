@@ -7,7 +7,6 @@ import type {
 import {
   CheckIcon,
   ChevronDownIcon,
-  ClockIcon,
   ExternalLinkIcon,
   LoaderIcon,
   MinusIcon,
@@ -105,14 +104,22 @@ export function workflowPhaseState(
   return workflowTerminal ? "done" : "active";
 }
 
+function agentStats(agent: OrchestrationV2WorkflowAgent): string {
+  return [
+    ...(agent.model === null ? [] : [workflowAgentModelLabel(agent.model)]),
+    ...(agent.totalTokens === undefined
+      ? []
+      : [`${formatContextWindowTokens(agent.totalTokens)} tok`]),
+    ...(agent.durationMs === undefined ? [] : [formatDuration(agent.durationMs)]),
+  ].join(" · ");
+}
+
+/** Inline status glyph for agent rows — the plan sidebar's palette at timeline scale. */
 function AgentStatusIcon(props: { readonly status: OrchestrationV2WorkflowAgent["status"] }) {
   switch (props.status) {
     case "completed":
       return (
-        <CheckIcon
-          aria-label="completed"
-          className="size-3 shrink-0 text-emerald-600 dark:text-emerald-400"
-        />
+        <CheckIcon aria-label="completed" className="size-3 shrink-0 text-success-foreground" />
       );
     case "running":
       return (
@@ -123,64 +130,41 @@ function AgentStatusIcon(props: { readonly status: OrchestrationV2WorkflowAgent[
     case "cancelled":
       return <MinusIcon aria-label="cancelled" className="size-3 shrink-0 text-muted-foreground" />;
     case "queued":
-      return <ClockIcon aria-label="queued" className="size-3 shrink-0 text-muted-foreground/70" />;
+      return (
+        <span aria-label="queued" className="flex size-3 shrink-0 items-center justify-center">
+          <span className="size-1.5 rounded-full bg-muted-foreground/30" />
+        </span>
+      );
   }
 }
 
-function PhaseGlyph(props: { readonly state: WorkflowPhaseState; readonly ordinal: number }) {
-  if (props.state === "active") {
-    return <LoaderIcon aria-hidden="true" className="size-3 shrink-0 animate-spin text-primary" />;
-  }
+/** The plan sidebar's step chip, reused verbatim so phases read as plan steps. */
+function PhaseChip(props: { readonly state: WorkflowPhaseState }) {
   if (props.state === "done") {
     return (
-      <CheckIcon
-        aria-hidden="true"
-        className="size-3 shrink-0 text-emerald-600 dark:text-emerald-400"
-      />
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success/10 text-success-foreground">
+        <CheckIcon className="size-3" />
+      </span>
+    );
+  }
+  if (props.state === "active") {
+    return (
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <LoaderIcon className="size-3 animate-spin" />
+      </span>
     );
   }
   if (props.state === "failed") {
-    return <XIcon aria-hidden="true" className="size-3 shrink-0 text-destructive" />;
+    return (
+      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+        <XIcon className="size-3" />
+      </span>
+    );
   }
   return (
-    <span
-      aria-hidden="true"
-      className="flex size-3 shrink-0 items-center justify-center font-mono text-[10px] text-muted-foreground/70"
-    >
-      {props.ordinal}
+    <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/30">
+      <span className="size-1.5 rounded-full bg-muted-foreground/30" />
     </span>
-  );
-}
-
-function AgentRow(props: { readonly agent: OrchestrationV2WorkflowAgent }) {
-  const { agent } = props;
-  const stats = [
-    ...(agent.model === null ? [] : [workflowAgentModelLabel(agent.model)]),
-    ...(agent.totalTokens === undefined
-      ? []
-      : [`${formatContextWindowTokens(agent.totalTokens)} tok`]),
-    ...(agent.durationMs === undefined ? [] : [formatDuration(agent.durationMs)]),
-  ];
-  return (
-    <div
-      data-v2-workflow-agent={agent.index}
-      data-v2-workflow-agent-status={agent.status}
-      className="flex min-w-0 items-center gap-2 py-0.5 pl-5"
-      {...(agent.promptPreview === undefined ? {} : { title: agent.promptPreview })}
-    >
-      <AgentStatusIcon status={agent.status} />
-      <span className="min-w-0 flex-1 truncate text-xs text-foreground/90">{agent.label}</span>
-      {agent.resultPreview === undefined || agent.status !== "completed" ? null : (
-        <span className="hidden max-w-[35%] truncate text-[11px] text-muted-foreground/80 sm:inline">
-          {agent.resultPreview}
-        </span>
-      )}
-      {stats.length === 0 ? null : (
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-          {stats.join(" · ")}
-        </span>
-      )}
-    </div>
   );
 }
 
@@ -201,55 +185,57 @@ export function V2WorkflowCard(props: {
   ];
   const result = item.result?.trim() ? item.result : null;
   const childThreadId = item.childThreadId;
+  const title = item.description.trim().length > 0 ? item.description : item.workflowName;
   return (
     <section
       data-v2-item-type="workflow"
       data-v2-workflow-status={item.status}
-      className="relative min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card/30"
+      className={cn(
+        "relative min-w-0 overflow-hidden rounded-lg border bg-card/30",
+        item.status === "failed" ? "border-destructive/25 bg-destructive/5" : "border-border/60",
+      )}
     >
       <div className="flex min-w-0 items-center gap-2 px-3 py-2 pr-11">
         <WorkflowIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="min-w-0 truncate font-mono text-xs font-medium">{item.workflowName}</span>
-        <span
-          className={cn(
-            "rounded-full border px-1.5 py-0.5 font-mono text-[10px]",
-            item.status === "failed"
-              ? "border-destructive/40 text-destructive"
-              : item.status === "completed"
-                ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-                : "border-border/70 text-muted-foreground",
-          )}
-        >
-          {item.status}
-        </span>
-        <span className="min-w-0 flex-1" />
+        <span className="min-w-0 flex-1 truncate text-xs font-medium">{title}</span>
         {stats.length === 0 ? null : (
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+          <span className="max-w-[40%] shrink-0 truncate text-xs text-muted-foreground">
             {stats.join(" · ")}
           </span>
         )}
+        <span className="rounded-full border border-border/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          {item.status}
+        </span>
       </div>
-      {item.description.trim().length === 0 ? null : (
-        <p className="truncate px-3 pb-1.5 text-xs text-muted-foreground">{item.description}</p>
-      )}
       {groups.length === 0 ? null : (
-        <div className="space-y-1 border-border/60 border-t px-3 py-2">
-          {groups.map((group, groupIndex) => {
+        <div className="space-y-1 border-border/60 border-t px-1.5 py-1.5">
+          {groups.map((group) => {
             const state = workflowPhaseState(group, isTerminal);
             const doneAgents = group.agents.filter((agent) =>
               TERMINAL_AGENT_STATUSES.has(agent.status),
             ).length;
             return (
-              <div key={group.key} data-v2-workflow-phase={group.index ?? "other"}>
+              <div
+                key={group.key}
+                data-v2-workflow-phase={group.index ?? "other"}
+                className={cn(
+                  "rounded-lg px-2.5 py-2 transition-colors duration-200",
+                  state === "active" && "bg-blue-500/5",
+                )}
+              >
                 <div
-                  className="flex min-w-0 items-center gap-2"
+                  className="flex min-w-0 items-center gap-2.5"
                   {...(group.detail === null ? {} : { title: group.detail })}
                 >
-                  <PhaseGlyph state={state} ordinal={group.index ?? groupIndex + 1} />
+                  <PhaseChip state={state} />
                   <span
                     className={cn(
-                      "min-w-0 truncate text-xs font-medium",
-                      state === "pending" ? "text-muted-foreground" : "text-foreground/90",
+                      "min-w-0 flex-1 truncate text-[13px] leading-snug",
+                      state === "active"
+                        ? "text-foreground/90"
+                        : state === "pending"
+                          ? "text-muted-foreground/70"
+                          : "text-foreground/82",
                     )}
                   >
                     {group.title}
@@ -260,9 +246,34 @@ export function V2WorkflowCard(props: {
                     </span>
                   )}
                 </div>
-                {group.agents.map((agent) => (
-                  <AgentRow key={agent.index} agent={agent} />
-                ))}
+                {group.agents.length === 0 ? null : (
+                  <div className="mt-1 space-y-0.5 pl-7.5">
+                    {group.agents.map((agent) => (
+                      <div
+                        key={agent.index}
+                        data-v2-workflow-agent={agent.index}
+                        data-v2-workflow-agent-status={agent.status}
+                        className="flex min-w-0 items-center gap-2"
+                        {...(agent.promptPreview === undefined
+                          ? {}
+                          : { title: agent.promptPreview })}
+                      >
+                        <AgentStatusIcon status={agent.status} />
+                        <span className="min-w-0 shrink-0 truncate text-xs text-foreground/82">
+                          {agent.label}
+                        </span>
+                        {agent.resultPreview === undefined ? null : (
+                          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground/70">
+                            {agent.resultPreview}
+                          </span>
+                        )}
+                        <span className="ml-auto shrink-0 pl-3 font-mono text-[10px] text-muted-foreground">
+                          {agentStats(agent)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -273,13 +284,8 @@ export function V2WorkflowCard(props: {
           data-v2-workflow-progress="true"
           className="flex min-w-0 items-center gap-2 border-border/60 border-t px-3 py-1.5"
         >
-          <span
-            aria-hidden="true"
-            className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary"
-          />
-          <span className="min-w-0 truncate text-[11px] text-muted-foreground">
-            {item.progress}
-          </span>
+          <LoaderIcon className="size-3 shrink-0 animate-spin text-primary" aria-hidden="true" />
+          <span className="min-w-0 truncate text-xs text-muted-foreground">{item.progress}</span>
         </div>
       )}
       {result === null || !isTerminal ? null : (
@@ -291,9 +297,7 @@ export function V2WorkflowCard(props: {
             aria-label={`Show result for ${item.workflowName}`}
             className="flex min-w-0 cursor-pointer list-none items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-muted/50 [&::-webkit-details-marker]:hidden"
           >
-            <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
-              {result}
-            </span>
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{result}</span>
             <ChevronDownIcon
               className="size-3 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
               aria-hidden="true"

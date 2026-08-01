@@ -39,10 +39,12 @@ import { HttpClient, HttpClientResponse } from "effect/unstable/http";
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
+import type { BuiltInDriversEnv } from "../builtInDrivers.ts";
 import { ClaudeDriver } from "../Drivers/ClaudeDriver.ts";
-import { CodexDriver } from "../Drivers/CodexDriver.ts";
+import { CodexDriver, type CodexDriverEnv } from "../Drivers/CodexDriver.ts";
 import { NoOpProviderEventLoggers, ProviderEventLoggers } from "./ProviderEventLoggers.ts";
 import { makeProviderInstanceRegistry } from "./ProviderInstanceRegistryLive.ts";
+import { ProviderOrchestrationAdapterInfrastructureLive } from "./ProviderOrchestrationAdapterInfrastructure.ts";
 
 const TestHttpClientLive = Layer.succeed(
   HttpClient.HttpClient,
@@ -107,14 +109,18 @@ describe("ProviderInstanceRegistryLive — multi-instance codex slice", () => {
   // `NodeServices.layer` through `Layer.provideMerge` to satisfy that
   // dependency while still surfacing NodeServices to the test body (the
   // codex driver's `create` yields `ChildProcessSpawner` directly).
-  const testLayer = ServerConfig.layerTest(process.cwd(), {
+  const baseLayer = ServerConfig.layerTest(process.cwd(), {
     prefix: "provider-instance-registry-test",
   }).pipe(
     Layer.provideMerge(NodeServices.layer),
     Layer.provideMerge(BackgroundPolicyAlwaysRunLayer),
     Layer.provideMerge(ServerSettingsService.layerTest()),
     Layer.provideMerge(TestHttpClientLive),
+    Layer.provideMerge(ServerSettingsService.layerTest()),
     Layer.provideMerge(Layer.succeed(ProviderEventLoggers, NoOpProviderEventLoggers)),
+  );
+  const testLayer = ProviderOrchestrationAdapterInfrastructureLive.pipe(
+    Layer.provideMerge(baseLayer),
   );
 
   it.live("boots two independent codex instances from a ProviderInstanceConfigMap", () =>
@@ -146,7 +152,7 @@ describe("ProviderInstanceRegistryLive — multi-instance codex slice", () => {
         },
       };
 
-      const { registry } = yield* makeProviderInstanceRegistry({
+      const { registry } = yield* makeProviderInstanceRegistry<CodexDriverEnv>({
         drivers: [CodexDriver],
         configMap,
       });
@@ -165,7 +171,7 @@ describe("ProviderInstanceRegistryLive — multi-instance codex slice", () => {
       const work = yield* registry.getInstance(workId);
       expect(personal).toBeDefined();
       expect(work).toBeDefined();
-      expect(personal!.adapter).not.toBe(work!.adapter);
+      expect(personal!.orchestrationAdapter).not.toBe(work!.orchestrationAdapter);
       expect(personal!.textGeneration).not.toBe(work!.textGeneration);
       expect(personal!.snapshot).not.toBe(work!.snapshot);
 
@@ -212,7 +218,7 @@ describe("ProviderInstanceRegistryLive — multi-instance codex slice", () => {
           },
         };
 
-        const { registry } = yield* makeProviderInstanceRegistry({
+        const { registry } = yield* makeProviderInstanceRegistry<CodexDriverEnv>({
           drivers: [CodexDriver],
           configMap,
         });
@@ -237,14 +243,18 @@ describe("ProviderInstanceRegistryLive — all drivers slice", () => {
   // Path). `NodeServices.layer` provides `ServerConfig.layerTest`'s
   // `FileSystem` dep while keeping everything else surfaced to the test.
   const infraLayer = NodeServices.layer;
-  const testLayer = ServerConfig.layerTest(process.cwd(), {
+  const baseLayer = ServerConfig.layerTest(process.cwd(), {
     prefix: "provider-instance-registry-all-drivers-test",
   }).pipe(
     Layer.provideMerge(infraLayer),
     Layer.provideMerge(BackgroundPolicyAlwaysRunLayer),
     Layer.provideMerge(ServerSettingsService.layerTest()),
     Layer.provideMerge(TestHttpClientLive),
+    Layer.provideMerge(ServerSettingsService.layerTest()),
     Layer.provideMerge(Layer.succeed(ProviderEventLoggers, NoOpProviderEventLoggers)),
+  );
+  const testLayer = ProviderOrchestrationAdapterInfrastructureLive.pipe(
+    Layer.provideMerge(baseLayer),
   );
 
   it.live("boots one instance of every shipped driver from a single config map", () =>
@@ -273,7 +283,7 @@ describe("ProviderInstanceRegistryLive — all drivers slice", () => {
         },
       };
 
-      const { registry } = yield* makeProviderInstanceRegistry({
+      const { registry } = yield* makeProviderInstanceRegistry<BuiltInDriversEnv>({
         drivers: [CodexDriver, ClaudeDriver],
         configMap,
       });
@@ -300,10 +310,10 @@ describe("ProviderInstanceRegistryLive — all drivers slice", () => {
       expect(claude?.displayName).toBe("Claude");
 
       // Every instance owns its own set of closures — no sharing across
-      // drivers. `adapter` / `textGeneration` / `snapshot` are all
+      // drivers. `orchestrationAdapter` / `textGeneration` / `snapshot` are all
       // distinct references even when two instances happen to share a
       // trait (they must still be different object values).
-      const adapters = [codex!.adapter, claude!.adapter];
+      const adapters = [codex!.orchestrationAdapter, claude!.orchestrationAdapter];
       expect(new Set(adapters).size).toBe(adapters.length);
       const textGenerations = [codex!.textGeneration, claude!.textGeneration];
       expect(new Set(textGenerations).size).toBe(textGenerations.length);

@@ -1,5 +1,7 @@
 import type { ProviderInteractionMode } from "@piku/contracts";
 
+import { PIKU_CODE_ORCHESTRATION_INSTRUCTIONS } from "./PikuOrchestrationInstructions.ts";
+
 const PIKU_CODE_BROWSER_TOOL_INSTRUCTIONS = `
 
 ## Piku Code collaborative browser
@@ -146,6 +148,7 @@ The \`request_user_input\` tool is unavailable in Default mode. If you call it w
 
 In Default mode, strongly prefer making reasonable assumptions and executing the user's request rather than stopping to ask questions. If you absolutely must ask a question because the answer cannot be discovered from local context and a reasonable assumption would be risky, ask the user directly with a concise plain-text question. Never write a multiple choice question as a textual assistant message.
 ${PIKU_CODE_BROWSER_TOOL_INSTRUCTIONS}
+${PIKU_CODE_ORCHESTRATION_INSTRUCTIONS}
 </collaboration_mode>`;
 
 export interface CodexRuntimeInfo {

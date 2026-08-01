@@ -12,6 +12,7 @@ export default defineConfig({
     environment: "node",
     exclude: [
       "**/.repos/**",
+      "**/.pikucode/**",
       "**/node_modules/**",
       "**/dist/**",
       "**/dist-electron/**",

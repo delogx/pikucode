@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 
-import { ProjectScriptIcon } from "./orchestration.ts";
+import { ProjectScriptIcon } from "./project.ts";
 
 /** File name of the checked-in Piku project file, resolved at the workspace root. */
 export const PIKU_PROJECT_FILE_NAME = "piku.json";

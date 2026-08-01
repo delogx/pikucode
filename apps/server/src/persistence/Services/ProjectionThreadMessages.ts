@@ -6,14 +6,8 @@
  *
  * @module ProjectionThreadMessageRepository
  */
-import {
-  ChatAttachment,
-  MessageId,
-  OrchestrationMessageRole,
-  ThreadId,
-  TurnId,
-  IsoDateTime,
-} from "@piku/contracts";
+import { ChatAttachment, MessageId, ThreadId, TurnId, IsoDateTime } from "@piku/contracts";
+import { OrchestrationMessageRole } from "@piku/contracts/legacy-orchestration";
 import * as Schema from "effect/Schema";
 import * as Context from "effect/Context";
 import type * as Option from "effect/Option";

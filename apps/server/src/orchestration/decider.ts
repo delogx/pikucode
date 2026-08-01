@@ -1,9 +1,9 @@
+import { EventId } from "@piku/contracts";
 import {
-  EventId,
   type OrchestrationCommand,
   type OrchestrationEvent,
   type OrchestrationReadModel,
-} from "@piku/contracts";
+} from "@piku/contracts/legacy-orchestration";
 import * as DateTime from "effect/DateTime";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
@@ -250,7 +250,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           title: command.title,
           workspaceRoot: command.workspaceRoot,
           defaultModelSelection: command.defaultModelSelection ?? null,
-          scripts: [],
+          scripts: command.scripts ?? [],
           createdAt: command.createdAt,
           updatedAt: command.createdAt,
         },

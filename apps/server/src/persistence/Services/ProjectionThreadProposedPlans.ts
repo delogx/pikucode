@@ -1,10 +1,5 @@
-import {
-  IsoDateTime,
-  OrchestrationProposedPlanId,
-  ThreadId,
-  TrimmedNonEmptyString,
-  TurnId,
-} from "@piku/contracts";
+import { IsoDateTime, ThreadId, TrimmedNonEmptyString, TurnId } from "@piku/contracts";
+import { OrchestrationProposedPlanId } from "@piku/contracts/legacy-orchestration";
 import * as Schema from "effect/Schema";
 import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";

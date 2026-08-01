@@ -72,16 +72,13 @@ import {
   PreviewAutomationWaitForInput,
 } from "./previewAutomation.ts";
 import type {
-  ClientOrchestrationCommand,
-  OrchestrationGetFullThreadDiffInput,
-  OrchestrationGetFullThreadDiffResult,
-  OrchestrationGetTurnDiffInput,
-  OrchestrationGetTurnDiffResult,
-  OrchestrationShellSnapshot,
-  OrchestrationShellStreamItem,
-  OrchestrationSubscribeThreadInput,
-  OrchestrationThreadStreamItem,
-} from "./orchestration.ts";
+  OrchestrationV2Command,
+  OrchestrationV2DispatchCommandResult,
+  OrchestrationV2GetThreadProjectionInput,
+  OrchestrationV2ShellStreamItem,
+  OrchestrationV2ThreadProjection,
+  OrchestrationV2ThreadStreamItem,
+} from "./orchestrationV2.ts";
 import { EnvironmentId } from "./baseSchemas.ts";
 import { AdvertisedEndpoint } from "./remoteAccess.ts";
 import type { ClientSettings } from "./settings.ts";
@@ -1013,6 +1010,7 @@ export interface EnvironmentApi {
       callback: (status: VcsStatusResult) => void,
       options?: {
         onResubscribe?: () => void;
+        onError?: (message: string) => void;
       },
     ) => () => void;
   };
@@ -1025,24 +1023,26 @@ export interface EnvironmentApi {
   review: {
     getDiffPreview: (input: ReviewDiffPreviewInput) => Promise<ReviewDiffPreviewResult>;
   };
-  orchestration: {
-    dispatchCommand: (command: ClientOrchestrationCommand) => Promise<{ sequence: number }>;
-    getTurnDiff: (input: OrchestrationGetTurnDiffInput) => Promise<OrchestrationGetTurnDiffResult>;
-    getFullThreadDiff: (
-      input: OrchestrationGetFullThreadDiffInput,
-    ) => Promise<OrchestrationGetFullThreadDiffResult>;
-    getArchivedShellSnapshot: () => Promise<OrchestrationShellSnapshot>;
+  orchestrationV2: {
+    dispatchCommand: (
+      command: OrchestrationV2Command,
+    ) => Promise<OrchestrationV2DispatchCommandResult>;
+    getThreadProjection: (
+      input: OrchestrationV2GetThreadProjectionInput,
+    ) => Promise<OrchestrationV2ThreadProjection>;
     subscribeShell: (
-      callback: (event: OrchestrationShellStreamItem) => void,
+      callback: (event: OrchestrationV2ShellStreamItem) => void,
       options?: {
         onResubscribe?: () => void;
+        onError?: (message: string) => void;
       },
     ) => () => void;
     subscribeThread: (
-      input: OrchestrationSubscribeThreadInput,
-      callback: (event: OrchestrationThreadStreamItem) => void,
+      input: OrchestrationV2GetThreadProjectionInput,
+      callback: (event: OrchestrationV2ThreadStreamItem) => void,
       options?: {
         onResubscribe?: () => void;
+        onError?: (message: string) => void;
       },
     ) => () => void;
   };

@@ -39,6 +39,8 @@ import { layer as providerTurnControlServiceLayer } from "./ProviderTurnControlS
 import { layer as providerTurnStartServiceLayer } from "./ProviderTurnStartService.ts";
 import { layer as runExecutionServiceLayer } from "./RunExecutionService.ts";
 import { layer as runFinalizationServiceLayer } from "./RunFinalizationService.ts";
+import { layer as runJanitorLayer } from "./RunJanitorService.ts";
+import { layer as runLeaseServiceLayer } from "./RunLeaseService.ts";
 import { layerFromProjectRepository as runtimePolicyLayerFromProjectRepository } from "./RuntimePolicy.ts";
 import { layer as runtimeRequestServiceLayer } from "./RuntimeRequestService.ts";
 import { layerWithLegacyImporter as threadManagementServiceLayer } from "./ThreadManagementService.ts";
@@ -110,6 +112,7 @@ const runExecutionServiceProvided = runExecutionServiceLayer.pipe(
       eventSinkProvided,
       idAllocatorLayer,
       providerEventIngestorProvided,
+      runLeaseServiceLayer,
     ),
   ),
 );
@@ -228,6 +231,7 @@ const threadLaunchProvided = threadLaunchServiceLayer.pipe(
       threadManagementProvided,
       commandReceiptStoreProvided,
       idAllocatorLayer,
+      runLeaseServiceLayer,
     ),
   ),
 );
@@ -252,6 +256,10 @@ const threadGoalTrackerWorkerProvided = threadGoalTrackerWorkerLive.pipe(
   Layer.provide(Layer.mergeAll(threadManagementProvided, eventSinkProvided, idAllocatorLayer)),
 );
 
+const runJanitorProvided = runJanitorLayer.pipe(
+  Layer.provide(Layer.merge(storesLayer, providerRuntimeRecoveryProvided)),
+);
+
 export const OrchestrationV2LayerLive = Layer.mergeAll(
   orchestratorProvided,
   threadManagementProvided,
@@ -260,6 +268,7 @@ export const OrchestrationV2LayerLive = Layer.mergeAll(
   providerRuntimeRecoveryProvided,
   projectionMaintenanceProvided,
   legacyV1ThreadImporterProvided,
+  runJanitorProvided,
 );
 
 export const OrchestrationV2ProductionLayerLive = Layer.mergeAll(

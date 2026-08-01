@@ -1,12 +1,63 @@
 import { useAtomValue } from "@effect/atom-react";
 import { useId } from "react";
+import type { EnvironmentIdentificationMode, SidebarArtwork } from "@piku/contracts/settings";
 
+import auroraArt from "../assets/stage-artworks/aurora.webp";
+import duskTideArt from "../assets/stage-artworks/dusk-tide.webp";
+import midnightCityArt from "../assets/stage-artworks/midnight-city.webp";
+import mistyPinesArt from "../assets/stage-artworks/misty-pines.webp";
+import nebulaArt from "../assets/stage-artworks/nebula.webp";
+import neonHorizonArt from "../assets/stage-artworks/neon-horizon.webp";
 import { APP_STAGE_LABEL } from "../branding";
 import { resolveServerBackedAppStageLabel } from "../branding.logic";
+import { useClientSettings, useEnvironmentIdentificationMode } from "../hooks/useSettings";
 import { primaryServerConfigAtom } from "../state/server";
 
 export type SidebarStageBackdropVariant = "nightly" | "dev";
 export type EnvironmentIdentificationPillLabel = "Dev" | "Nightly";
+
+export type StageArtworkId = Exclude<SidebarArtwork, "auto">;
+
+export type StageArtwork = { readonly id: StageArtworkId; readonly name: string } & (
+  | { readonly kind: "svg"; readonly variant: SidebarStageBackdropVariant }
+  | { readonly kind: "image"; readonly src: string }
+);
+
+/** Every pickable artwork, in the order the settings picker presents them. */
+export const STAGE_ARTWORKS: ReadonlyArray<StageArtwork> = [
+  { id: "night-sky", name: "Night Sky", kind: "svg", variant: "nightly" },
+  { id: "blueprint", name: "Blueprint", kind: "svg", variant: "dev" },
+  { id: "aurora", name: "Aurora", kind: "image", src: auroraArt },
+  { id: "dusk-tide", name: "Dusk Tide", kind: "image", src: duskTideArt },
+  { id: "midnight-city", name: "Midnight City", kind: "image", src: midnightCityArt },
+  { id: "misty-pines", name: "Misty Pines", kind: "image", src: mistyPinesArt },
+  { id: "nebula", name: "Nebula", kind: "image", src: nebulaArt },
+  { id: "neon-horizon", name: "Neon Horizon", kind: "image", src: neonHorizonArt },
+];
+
+export function getStageArtwork(id: StageArtworkId): StageArtwork {
+  const artwork = STAGE_ARTWORKS.find((candidate) => candidate.id === id);
+  if (!artwork) throw new Error(`Unknown stage artwork: ${id}`);
+  return artwork;
+}
+
+/**
+ * Which artwork the sidebar shows. An explicit choice wins on every channel;
+ * "auto" keeps the historical behavior of per-channel stage art gated by the
+ * environment-identification mode.
+ */
+export function resolveStageArtworkId(input: {
+  stageLabel: string;
+  sidebarArtwork: SidebarArtwork;
+  environmentIdentificationMode: EnvironmentIdentificationMode;
+}): StageArtworkId | null {
+  if (input.sidebarArtwork !== "auto") return input.sidebarArtwork;
+  if (input.environmentIdentificationMode !== "artwork") return null;
+  const variant = resolveSidebarStageBackdropVariant(input.stageLabel);
+  if (variant === "nightly") return "night-sky";
+  if (variant === "dev") return "blueprint";
+  return null;
+}
 
 // A wide viewBox keeps the 96-unit art height at a fixed scale while sidebar resizing reveals
 // more horizontal canvas instead of zooming the scene.
@@ -42,28 +93,63 @@ export function useEnvironmentStageLabel(): string {
   });
 }
 
-export function useSidebarStageBackdropVariant(enabled = true): SidebarStageBackdropVariant | null {
-  return resolveSidebarStageBackdropVariant(useEnvironmentStageLabel(), enabled);
+/** The artwork the sidebar should currently show, or null for none. */
+export function useStageArtwork(): StageArtwork | null {
+  const stageLabel = useEnvironmentStageLabel();
+  const environmentIdentificationMode = useEnvironmentIdentificationMode();
+  const sidebarArtwork = useClientSettings((settings) => settings.sidebarArtwork);
+  const id = resolveStageArtworkId({ stageLabel, sidebarArtwork, environmentIdentificationMode });
+  return id === null ? null : getStageArtwork(id);
 }
 
-/** Stage-channel header art; palettes mirror the per-channel app icons in `assets/`. */
-export function SidebarStageBackdrop({ variant }: { variant: SidebarStageBackdropVariant }) {
+/** Sidebar header art; the svg palettes mirror the per-channel app icons in `assets/`. */
+export function SidebarStageBackdrop({ artwork }: { artwork: StageArtwork }) {
   return (
     <div
       aria-hidden
       className="sidebar-stage-backdrop pointer-events-none absolute inset-x-0 top-0 z-0 h-20 select-none overflow-hidden"
     >
-      <StageBackdropArt variant={variant} />
+      <StageArtworkFill artwork={artwork} />
+      {artwork.kind === "image" ? (
+        // Raster scenes are not tuned around the wordmark the way the svg
+        // scenes are, so ease the left edge for the white brand text.
+        <div className="absolute inset-0 bg-gradient-to-r from-black/35 via-black/10 to-transparent" />
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * Full-bleed artwork fill; the parent decides size and shape. `compact` shifts
+ * the svg scenes to a denser slice for small surfaces like the send button.
+ */
+export function StageArtworkFill({
+  artwork,
+  compact = false,
+}: {
+  artwork: StageArtwork;
+  compact?: boolean;
+}) {
+  if (artwork.kind === "svg") {
+    return artwork.variant === "nightly" ? (
+      <NightlySkyArt compact={compact} />
+    ) : (
+      <DevBlueprintArt compact={compact} />
+    );
+  }
+  return (
+    <img
+      alt=""
+      className="h-full w-full object-cover"
+      decoding="async"
+      draggable={false}
+      src={artwork.src}
+    />
   );
 }
 
 export function StageBackdropArt({ variant }: { variant: SidebarStageBackdropVariant }) {
   return variant === "nightly" ? <NightlySkyArt /> : <DevBlueprintArt />;
-}
-
-export function StageBackdropButtonArt({ variant }: { variant: SidebarStageBackdropVariant }) {
-  return variant === "nightly" ? <NightlySkyArt compact /> : <DevBlueprintArt compact />;
 }
 
 const NIGHTLY_STARS: ReadonlyArray<{

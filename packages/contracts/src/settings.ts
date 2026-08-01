@@ -61,6 +61,23 @@ export const DEFAULT_GLASS_OPACITY: GlassOpacity = 80;
 export const EnvironmentIdentificationMode = Schema.Literals(["artwork", "pill", "none"]);
 export type EnvironmentIdentificationMode = typeof EnvironmentIdentificationMode.Type;
 export const DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE: EnvironmentIdentificationMode = "artwork";
+// Which artwork fills the sidebar header and send button. "auto" keeps the
+// per-channel stage art (Blueprint on Dev, Night Sky on Nightly, none on
+// production); any other id pins that artwork on every channel. The web app
+// owns the id → artwork mapping; this schema only guards persistence.
+export const SidebarArtwork = Schema.Literals([
+  "auto",
+  "night-sky",
+  "blueprint",
+  "aurora",
+  "dusk-tide",
+  "midnight-city",
+  "misty-pines",
+  "nebula",
+  "neon-horizon",
+]);
+export type SidebarArtwork = typeof SidebarArtwork.Type;
+export const DEFAULT_SIDEBAR_ARTWORK: SidebarArtwork = "auto";
 
 export const ClientSettingsSchema = Schema.Struct({
   autoOpenPlanSidebar: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
@@ -111,6 +128,9 @@ export const ClientSettingsSchema = Schema.Struct({
     TrimmedNonEmptyString,
     SidebarProjectGroupingMode,
   ).pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+  sidebarArtwork: SidebarArtwork.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_ARTWORK)),
+  ),
   sidebarProjectSortOrder: SidebarProjectSortOrder.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_PROJECT_SORT_ORDER)),
   ),
@@ -615,6 +635,7 @@ export const ClientSettingsPatch = Schema.Struct({
       }),
     ),
   ),
+  sidebarArtwork: Schema.optionalKey(SidebarArtwork),
   sidebarAutoSettleAfterDays: Schema.optionalKey(Schema.NullOr(SidebarAutoSettleAfterDays)),
   sidebarProjectGroupingMode: Schema.optionalKey(SidebarProjectGroupingMode),
   sidebarProjectGroupingOverrides: Schema.optionalKey(

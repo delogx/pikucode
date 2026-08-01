@@ -295,7 +295,10 @@ function isClaudeSdkReplayMessage(frame: unknown): frame is SDKMessage {
     type === "user" ||
     type === "result" ||
     type === "system" ||
-    type === "rate_limit_event"
+    type === "rate_limit_event" ||
+    // Piku opens every query with `includePartialMessages`, so partial-message
+    // frames are ordinary production input and must replay like the rest.
+    type === "stream_event"
   );
 }
 

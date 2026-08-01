@@ -492,6 +492,15 @@ item/tool/requestUserInput
   -> RuntimeRequest(kind=user_input)
 ```
 
+Claude example:
+
+```text
+TaskCreate / TaskUpdate / TaskList / TaskGet / TodoWrite tool result
+  -> PlanArtifact(kind=todo_list)
+  -> activity/projection update
+  (no tool_call item: the task list is the projection)
+```
+
 Rules:
 
 - Root run todo lists update the main plan/progress UI.

@@ -39,6 +39,8 @@ export const TOOL_CALL_READ_ONLY_WORKSPACE_ROOT = "/tmp/claude-replay-tool_call_
 export const TOOL_CALL_READ_ONLY_PROMPT = `Read ${TOOL_CALL_READ_ONLY_WORKSPACE_ROOT}/package.json and ${TOOL_CALL_READ_ONLY_WORKSPACE_ROOT}/tsconfig.json, then answer exactly: read only tool fixture complete`;
 export const CLAUDE_LOCAL_BASH_TASK_PROMPT =
   "Run a local Bash typecheck command, then answer exactly: claude local bash task fixture complete";
+export const CLAUDE_TODO_LIST_PROMPT =
+  "Use the TodoWrite tool to track exactly three tasks: read package.json, read tsconfig.json, report completion. Update the todo list as you go so every task ends completed, then answer exactly: claude todo list fixture complete";
 export const CLAUDE_RESULT_IS_ERROR_PROMPT = "Say hello before the credentials expire.";
 export const CLAUDE_RESULT_IS_ERROR_FOLLOW_UP = "Try again now that auth is back.";
 export const TOOL_CALL_WRITE_PROMPT =

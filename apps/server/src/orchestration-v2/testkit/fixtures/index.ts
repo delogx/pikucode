@@ -6,6 +6,8 @@ import { claudeLocalBashTaskInput } from "./claude_local_bash_task/input.ts";
 import { assertClaudeLocalBashTaskOutput } from "./claude_local_bash_task/output.ts";
 import { claudeResultIsErrorInput } from "./claude_result_is_error/input.ts";
 import { assertClaudeResultIsErrorOutput } from "./claude_result_is_error/output.ts";
+import { assertClaudeTodoListOutput } from "./claude_todo_list/claude_output.ts";
+import { claudeTodoListInput } from "./claude_todo_list/input.ts";
 import { assertClaudeMessageSteeringOutput } from "./message_steering/claude_output.ts";
 import { assertMessageSteeringOutput } from "./message_steering/codex_output.ts";
 import { assertGrokMessageSteeringOutput } from "./message_steering/grok_output.ts";
@@ -110,6 +112,18 @@ export const ORCHESTRATOR_REPLAY_FIXTURES = [
         ),
         modelSelection: CLAUDE_MODEL_SELECTION,
         assertOutput: assertClaudeResultIsErrorOutput,
+      },
+    ],
+  },
+  {
+    name: "claude_todo_list",
+    buildInput: claudeTodoListInput,
+    providers: [
+      {
+        driver: ProviderDriverKind.make("claudeAgent"),
+        transcriptFile: new URL("./claude_todo_list/claude_transcript.ndjson", import.meta.url),
+        modelSelection: CLAUDE_MODEL_SELECTION,
+        assertOutput: assertClaudeTodoListOutput,
       },
     ],
   },

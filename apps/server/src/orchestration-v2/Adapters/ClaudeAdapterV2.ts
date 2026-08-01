@@ -26,6 +26,7 @@ import {
   type ModelSelection,
   type OrchestrationV2ConversationMessage,
   type OrchestrationV2ExecutionNode,
+  type OrchestrationV2PlanArtifact,
   type OrchestrationV2ProviderCapabilities,
   type OrchestrationV2ProviderFailure,
   type OrchestrationV2ProviderRetry,
@@ -74,6 +75,13 @@ import { ProviderEventLoggers } from "../../provider/Layers/ProviderEventLoggers
 import { mergeProviderInstanceEnvironment } from "../../provider/ProviderInstanceEnvironment.ts";
 import { PIKU_CODE_ORCHESTRATION_INSTRUCTIONS } from "../../provider/PikuOrchestrationInstructions.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
+import {
+  applyClaudeTaskListTool,
+  type ClaudeTask,
+  claudeTaskListSteps,
+  claudeTaskListToolKind,
+  type ClaudeTaskListToolKind,
+} from "./ClaudeTaskList.ts";
 import {
   type ClaudeWorkflowProgressSnapshot,
   type ClaudeWorkflowUsage,
@@ -187,8 +195,11 @@ export const ClaudeProviderCapabilitiesV2 = {
     approvalsCanOriginateFromSubagents: false,
   },
   planning: {
-    emitsPlanUpdated: false,
-    emitsTodoList: false,
+    // Claude has no plan protocol of its own: its task list arrives as task
+    // tool calls, which the adapter folds into one todo-list plan artifact per
+    // turn. See ClaudeTaskList.ts.
+    emitsPlanUpdated: true,
+    emitsTodoList: true,
     emitsProposedPlan: false,
     supportsStructuredQuestions: false,
     planDeltasHaveItemIds: false,
@@ -1306,6 +1317,15 @@ const CLAUDE_KNOWN_TOOL_CLASSIFICATIONS: Record<
   notebookedit: { itemType: "file_change", requestKind: "file-change" },
   read: { itemType: "dynamic_tool", requestKind: "file-read" },
   task: { itemType: "dynamic_tool", requestKind: "command" },
+  // Claude's task list. The list-shaping tools fold into a todo-list plan
+  // artifact instead of projecting a tool row each; the two background-task
+  // tools stay plain tool calls.
+  taskcreate: { itemType: "dynamic_tool", requestKind: "command" },
+  taskget: { itemType: "dynamic_tool", requestKind: "command" },
+  tasklist: { itemType: "dynamic_tool", requestKind: "command" },
+  taskoutput: { itemType: "dynamic_tool", requestKind: "command" },
+  taskstop: { itemType: "dynamic_tool", requestKind: "command" },
+  taskupdate: { itemType: "dynamic_tool", requestKind: "command" },
   todowrite: { itemType: "dynamic_tool", requestKind: "command" },
   toolsearch: { itemType: "dynamic_tool", requestKind: "command" },
   webfetch: { itemType: "web_search", requestKind: "command" },
@@ -1967,6 +1987,34 @@ interface ActiveClaudeTurnContext {
   readonly subagentsByTaskId: Map<string, ActiveClaudeSubagent>;
   readonly subagentsByToolUseId: Map<string, ActiveClaudeSubagent>;
   readonly subagentNodesByTaskId: Map<string, OrchestrationV2ExecutionNode["id"]>;
+  /**
+   * One task list per thread the turn projects into (the app thread plus one
+   * per subagent child thread), so every task tool call updates a single card
+   * instead of stacking a tool row per call.
+   */
+  readonly taskLists: Map<string, ActiveClaudeTaskList>;
+  /**
+   * Task-list tool calls awaiting their result, keyed by tool_use id. The result
+   * carries the runtime's structured view (assigned ids, confirmed status), so
+   * the list is only folded once both halves are in hand.
+   */
+  readonly pendingTaskListTools: Map<
+    string,
+    { readonly kind: ClaudeTaskListToolKind; readonly toolInput: ClaudeNativeToolInput }
+  >;
+}
+
+interface ActiveClaudeTaskList {
+  readonly planId: OrchestrationV2PlanArtifact["id"];
+  readonly nativeItemId: string;
+  readonly threadId: ThreadId;
+  readonly runId: ProviderAdapterV2TurnInput["runId"] | null;
+  readonly rootNodeId: OrchestrationV2ExecutionNode["id"];
+  readonly ordinal: number;
+  readonly startedAt: DateTime.Utc;
+  /** Claude's tasks in the order it added them. */
+  readonly tasks: Map<string, ClaudeTask>;
+  settled: boolean;
 }
 
 interface ActiveClaudeProviderRetry {
@@ -2911,6 +2959,139 @@ export function makeClaudeAdapterV2(
           return toolCall;
         });
 
+        // The turn's task list for the thread a task tool call projects into:
+        // the app thread, or a subagent's child thread when the call came from
+        // one. Allocated once so later calls update the same card.
+        const ensureClaudeTaskList = Effect.fnUntraced(function* (input: {
+          readonly context: ActiveClaudeTurnContext;
+          readonly parentToolUseId: string | null;
+          readonly startedAt: DateTime.Utc;
+        }) {
+          const subagent =
+            input.parentToolUseId === null
+              ? undefined
+              : input.context.subagentsByToolUseId.get(input.parentToolUseId);
+          const threadId = subagent?.childThreadId ?? input.context.input.threadId;
+          const existing = input.context.taskLists.get(threadId);
+          if (existing !== undefined) {
+            return existing;
+          }
+          const runId = subagent === undefined ? input.context.input.runId : null;
+          const nativeItemId =
+            subagent === undefined
+              ? `tasks:${input.context.nativeTurnId}`
+              : `tasks:${input.context.nativeTurnId}:${threadId}`;
+          const created: ActiveClaudeTaskList = {
+            planId: idAllocator.derive.planFromProviderItem({
+              driver: CLAUDE_PROVIDER,
+              nativeItemId,
+            }),
+            nativeItemId,
+            threadId,
+            runId,
+            rootNodeId: subagent?.childRootNodeId ?? input.context.input.rootNodeId,
+            ordinal:
+              subagent === undefined
+                ? yield* resolveItemOrdinal(input.context, nativeItemId)
+                : ++subagent.nextChildItemOrdinal,
+            startedAt: input.startedAt,
+            tasks: new Map(),
+            settled: false,
+          };
+          input.context.taskLists.set(threadId, created);
+          return created;
+        });
+
+        // Emits the todo-list node, plan artifact, and turn item for the current
+        // state of a task list. `terminal` settles the row when the turn ends
+        // with unfinished tasks: nothing is running any more, so the row must
+        // not keep spinning even though the tasks stay unfinished.
+        const emitClaudeTaskList = Effect.fnUntraced(function* (input: {
+          readonly context: ActiveClaudeTurnContext;
+          readonly taskList: ActiveClaudeTaskList;
+          readonly updatedAt: DateTime.Utc;
+          readonly terminal?: boolean;
+        }) {
+          const taskList = input.taskList;
+          const updatedAt = input.updatedAt;
+          const steps = claudeTaskListSteps(taskList.tasks.values());
+          const allDone = steps.length > 0 && steps.every((step) => step.status === "completed");
+          const settled = allDone || input.terminal === true;
+          taskList.settled = settled;
+          const nodeId = idAllocator.derive.nodeFromProviderItem({
+            driver: CLAUDE_PROVIDER,
+            nativeItemId: taskList.nativeItemId,
+          });
+          const nativeItemRef = {
+            driver: CLAUDE_PROVIDER,
+            nativeId: taskList.nativeItemId,
+            strength: "weak" as const,
+          };
+          const providerThreadId =
+            taskList.runId === null ? null : input.context.input.providerThread.id;
+          const providerTurnId = taskList.runId === null ? null : input.context.providerTurnId;
+          yield* emitProviderEvent({
+            type: "node.updated",
+            driver: CLAUDE_PROVIDER,
+            node: {
+              id: nodeId,
+              threadId: taskList.threadId,
+              runId: taskList.runId,
+              parentNodeId: taskList.rootNodeId,
+              rootNodeId: taskList.rootNodeId,
+              kind: "todo_list",
+              status: settled ? "completed" : "running",
+              countsForRun: false,
+              providerThreadId,
+              providerTurnId,
+              nativeItemRef,
+              runtimeRequestId: null,
+              checkpointScopeId: null,
+              startedAt: taskList.startedAt,
+              completedAt: settled ? updatedAt : null,
+            },
+          });
+          yield* emitProviderEvent({
+            type: "plan.updated",
+            driver: CLAUDE_PROVIDER,
+            plan: {
+              id: taskList.planId,
+              threadId: taskList.threadId,
+              runId: taskList.runId,
+              nodeId,
+              kind: "todo_list",
+              status: allDone ? "completed" : "active",
+              steps,
+            },
+          });
+          yield* emitProviderEvent({
+            type: "turn_item.updated",
+            driver: CLAUDE_PROVIDER,
+            turnItem: {
+              id: idAllocator.derive.turnItemFromProviderItem({
+                driver: CLAUDE_PROVIDER,
+                nativeItemId: taskList.nativeItemId,
+              }),
+              threadId: taskList.threadId,
+              runId: taskList.runId,
+              nodeId,
+              providerThreadId,
+              providerTurnId,
+              nativeItemRef,
+              parentItemId: null,
+              ordinal: taskList.ordinal,
+              status: settled ? "completed" : "running",
+              title: null,
+              startedAt: taskList.startedAt,
+              completedAt: settled ? updatedAt : null,
+              updatedAt,
+              type: "todo_list",
+              planId: taskList.planId,
+              steps,
+            },
+          });
+        });
+
         const buildApprovalRequestArtifacts = Effect.fnUntraced(function* (input: {
           readonly context: ActiveClaudeTurnContext;
           readonly nativeItemId: string;
@@ -3032,6 +3213,20 @@ export function makeClaudeAdapterV2(
             yield* emitToolCallArtifacts(artifacts);
           }
           input.context.toolCalls.clear();
+
+          input.context.pendingTaskListTools.clear();
+          for (const taskList of input.context.taskLists.values()) {
+            if (taskList.settled) {
+              continue;
+            }
+            yield* emitClaudeTaskList({
+              context: input.context,
+              taskList,
+              updatedAt: input.completedAt,
+              terminal: true,
+            });
+          }
+          input.context.taskLists.clear();
 
           if (
             input.context.assistant.emittedNativeItemIds.size === 0 &&
@@ -3688,16 +3883,52 @@ export function makeClaudeAdapterV2(
             if (toolUse.name === "Agent") {
               continue;
             }
+            const toolInput = claudeNativeToolInputFromUnknown(toolUse.input);
+            const parentToolUseId = parentToolUseIdFromSdkMessage(message);
+            // Task-list calls project as the task list itself, so they wait for
+            // their result (which carries assigned ids and confirmed status)
+            // instead of opening a tool row.
+            const taskListToolKind = claudeTaskListToolKind(normalizedClaudeToolName(toolUse.name));
+            if (taskListToolKind !== undefined) {
+              context.pendingTaskListTools.set(toolUse.id, {
+                kind: taskListToolKind,
+                toolInput,
+              });
+              continue;
+            }
             yield* ensureToolCallStarted({
               context,
               nativeItemId: toolUse.id,
               toolName: toolUse.name,
-              toolInput: claudeNativeToolInputFromUnknown(toolUse.input),
-              parentToolUseId: parentToolUseIdFromSdkMessage(message),
+              toolInput,
+              parentToolUseId,
             });
           }
 
           for (const { toolResult, output } of claudeToolResultEntriesFromMessage(message)) {
+            const pendingTaskListTool = context.pendingTaskListTools.get(toolResult.tool_use_id);
+            if (pendingTaskListTool !== undefined) {
+              context.pendingTaskListTools.delete(toolResult.tool_use_id);
+              if (isClaudeToolResultError(toolResult)) {
+                continue;
+              }
+              const updatedAt = yield* DateTime.now;
+              const taskList = yield* ensureClaudeTaskList({
+                context,
+                parentToolUseId: parentToolUseIdFromSdkMessage(message),
+                startedAt: updatedAt,
+              });
+              const changed = applyClaudeTaskListTool({
+                tasks: taskList.tasks,
+                kind: pendingTaskListTool.kind,
+                toolInput: claudeNativeToolInputValue(pendingTaskListTool.toolInput),
+                toolOutput: claudeNativeToolOutputValue(output),
+              });
+              if (changed) {
+                yield* emitClaudeTaskList({ context, taskList, updatedAt });
+              }
+              continue;
+            }
             const subagent = context.subagentsByToolUseId.get(toolResult.tool_use_id);
             // A resume task_started reuses the resuming tool call's
             // tool_use_id (e.g. SendMessage), whose tool_result only
@@ -4093,6 +4324,8 @@ export function makeClaudeAdapterV2(
               subagentsByTaskId: new Map(),
               subagentsByToolUseId: new Map(),
               subagentNodesByTaskId: new Map(),
+              taskLists: new Map(),
+              pendingTaskListTools: new Map(),
             };
             // Continuation turns attach to the wake output the CLI already
             // produced instead of prompting it again: drain the buffered wake

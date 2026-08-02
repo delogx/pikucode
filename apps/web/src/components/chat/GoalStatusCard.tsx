@@ -1,5 +1,5 @@
 import type { OrchestrationV2ThreadGoal } from "@piku/contracts";
-import { threadGoalElapsedSeconds } from "@piku/shared/threadGoal";
+import { isThreadGoalCounting, threadGoalElapsedSeconds } from "@piku/shared/threadGoal";
 import {
   CheckIcon,
   CircleAlertIcon,
@@ -279,7 +279,10 @@ function LedgerVariant(context: GoalRenderContext) {
         </span>
         {context.menu}
       </div>
-      {context.fraction !== null ? (
+      {/* The burn hairline is runway, not history: under a Done or Paused
+          label a part-filled bar reads as stalled progress, so it only shows
+          while the goal can still consume budget. */}
+      {context.fraction !== null && isThreadGoalCounting(context.goal) ? (
         <BudgetBar
           fraction={context.fraction}
           color={context.meterColor}

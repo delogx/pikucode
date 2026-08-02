@@ -58,62 +58,40 @@ export const GOAL_STATUS_TONE_COLOR_VAR: Record<GoalStatusTone, string> = {
   success: "var(--success-foreground)",
 };
 
-export type GoalLedgerStatusIcon = "working" | "done" | "paused" | "alert";
+export type GoalLedgerStatusIcon = "paused" | "alert";
 
 export interface GoalLedgerStatus {
   readonly label: string;
   readonly icon: GoalLedgerStatusIcon;
   /**
-   * Sidebar status hues, verbatim (SidebarV2 topStatus): sky working, emerald
-   * done, amber/red alerts — so a goal reads the same color as the thread row
-   * that carries it.
+   * Sidebar status hues, verbatim (SidebarV2 topStatus), so a goal reads the
+   * same color language as the thread row that carries it.
    */
   readonly className: string;
-  readonly pulse: boolean;
 }
 
+/**
+ * Ledger status cluster for goal-specific conditions only. Active and
+ * completed goals show no label — the thread's own status already says
+ * whether the agent is running or finished, and repeating it on the card
+ * read as a duplicate.
+ */
 export function goalLedgerStatus(
-  status: OrchestrationV2ThreadGoalStatus,
-  working: boolean,
+  status: Exclude<OrchestrationV2ThreadGoalStatus, "active" | "complete">,
 ): GoalLedgerStatus {
   switch (status) {
-    case "active":
-      return {
-        label: working ? "Working" : "Active",
-        icon: "working",
-        className: "text-sky-600 dark:text-sky-400",
-        pulse: working,
-      };
     case "paused":
-      return { label: "Paused", icon: "paused", className: "text-muted-foreground", pulse: false };
+      return { label: "Paused", icon: "paused", className: "text-muted-foreground" };
     case "blocked":
-      return {
-        label: "Blocked",
-        icon: "alert",
-        className: "text-amber-700 dark:text-amber-300",
-        pulse: false,
-      };
+      return { label: "Blocked", icon: "alert", className: "text-amber-700 dark:text-amber-300" };
     case "usageLimited":
       return {
         label: "Usage limit",
         icon: "alert",
         className: "text-amber-700 dark:text-amber-300",
-        pulse: false,
       };
     case "budgetLimited":
-      return {
-        label: "Budget hit",
-        icon: "alert",
-        className: "text-red-700 dark:text-red-300",
-        pulse: false,
-      };
-    case "complete":
-      return {
-        label: "Done",
-        icon: "done",
-        className: "text-emerald-700 dark:text-emerald-300",
-        pulse: false,
-      };
+      return { label: "Budget hit", icon: "alert", className: "text-red-700 dark:text-red-300" };
   }
 }
 

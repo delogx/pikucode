@@ -49,9 +49,11 @@ The goal card ships in nine display styles — from a one-line ledger strip to a
 ring gauge, segment bar, and status trail. Pick one from the card's `…` menu under **Display
 style**; the choice is per device and applies immediately.
 
-The default ledger strip uses the same status indicators as thread rows elsewhere in the app: a
-dashed-circle **Working** counter in sky while a turn runs, a circled-check **Done** in emerald
-once the objective is marked complete, and the matching paused/alert treatments in between.
+The default ledger strip stays quiet while a goal is active or completed — the thread's own
+status already says whether the agent is running or finished, and the card's ticking counters
+carry liveness. A status label (using the same indicator language as thread rows elsewhere in
+the app) appears only for goal-specific conditions: **Paused**, **Blocked**, **Usage limit**,
+and **Budget hit**.
 
 ## What counts as usage
 

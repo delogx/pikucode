@@ -58,6 +58,7 @@ import Migration0042 from "./Migrations/042_OrchestrationV2EffectCancellation.ts
 import Migration0043 from "./Migrations/043_ScheduledTasks.ts";
 import Migration0044 from "./Migrations/044_LegacyV1ImportState.ts";
 import Migration0045 from "./Migrations/045_OrchestrationV2ThreadGoals.ts";
+import Migration0046 from "./Migrations/046_OrchestrationV2RunLifecycleGuarantees.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -115,6 +116,7 @@ export const migrationEntries = [
   [43, "ScheduledTasks", Migration0043],
   [44, "LegacyV1ImportState", Migration0044],
   [45, "OrchestrationV2ThreadGoals", Migration0045],
+  [46, "OrchestrationV2RunLifecycleGuarantees", Migration0046],
 ] as const;
 
 export const makeMigrationLoader = (throughId?: number) =>

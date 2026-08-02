@@ -16,6 +16,7 @@ import {
   OrchestrationV2ProviderTurn,
   OrchestrationV2RuntimeRequest,
   OrchestrationV2Subagent,
+  OrchestrationV2TokenUsageBreakdown,
   OrchestrationV2TurnItem,
   ProviderApprovalDecision,
   ProviderInteractionMode,
@@ -124,6 +125,15 @@ export const ProviderAdapterV2Event = Schema.Union([
     type: Schema.Literal("plan.updated"),
     driver: ProviderDriverKind,
     plan: OrchestrationV2PlanArtifact,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("token_usage.updated"),
+    driver: ProviderDriverKind,
+    threadId: Schema.optional(ThreadId),
+    providerThreadId: ProviderThreadId,
+    providerTurnId: ProviderTurnId,
+    /** Cumulative token usage within the referenced provider turn. */
+    tokens: OrchestrationV2TokenUsageBreakdown,
   }),
   Schema.Struct({
     type: Schema.Literal("turn.terminal"),

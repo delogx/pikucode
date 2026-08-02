@@ -29,6 +29,7 @@ import { layer as providerContinuationRequestsLayer } from "./ProviderContinuati
 import { workerLive as providerContinuationWorkerLive } from "./ProviderContinuationService.ts";
 import { layer as providerModelChangeRequestsLayer } from "./ProviderModelChangeRequests.ts";
 import { workerLive as providerModelChangeWorkerLive } from "./ProviderModelChangeService.ts";
+import { workerLive as threadGoalTrackerWorkerLive } from "./ThreadGoalTrackerService.ts";
 import { workerLive as threadTitleRegenerationWorkerLive } from "./ThreadTitleRegenerationService.ts";
 import { layer as providerEventIngestorLayer } from "./ProviderEventIngestor.ts";
 import { layer as providerSessionManagerLayer } from "./ProviderSessionManager.ts";
@@ -247,6 +248,9 @@ const providerModelChangeWorkerProvided = providerModelChangeWorkerLive.pipe(
 const threadTitleRegenerationWorkerProvided = threadTitleRegenerationWorkerLive.pipe(
   Layer.provide(Layer.merge(threadManagementProvided, ProjectServiceLayerLive)),
 );
+const threadGoalTrackerWorkerProvided = threadGoalTrackerWorkerLive.pipe(
+  Layer.provide(Layer.mergeAll(threadManagementProvided, eventSinkProvided, idAllocatorLayer)),
+);
 
 export const OrchestrationV2LayerLive = Layer.mergeAll(
   orchestratorProvided,
@@ -262,6 +266,7 @@ export const OrchestrationV2ProductionLayerLive = Layer.mergeAll(
   OrchestrationLayerLive,
   OrchestrationV2LayerLive,
   threadTitleRegenerationWorkerProvided,
+  threadGoalTrackerWorkerProvided,
   ProjectServiceLayerLive,
   threadLaunchProvided,
   threadLifecycleProvided,

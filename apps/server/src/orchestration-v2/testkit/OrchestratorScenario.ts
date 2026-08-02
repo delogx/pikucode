@@ -124,6 +124,8 @@ function commandThreadIds(command: OrchestrationV2Command): ReadonlyArray<Thread
     case "runtime-request.respond":
     case "checkpoint.rollback":
     case "provider.switch":
+    case "thread.goal.set":
+    case "thread.goal.clear":
       return [command.threadId];
     case "delegated_task.request":
     case "delegated_task.wake-policy":

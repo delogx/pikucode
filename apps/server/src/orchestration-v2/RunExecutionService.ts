@@ -378,6 +378,13 @@ export function routeProviderEvent(
             state.ownedProviderTurnIds.has(event.runtimeRequest.providerTurnId)),
         state,
       ];
+    case "token_usage.updated":
+      return [
+        state.ownedProviderTurnIds.has(event.providerTurnId) ||
+          state.ownedProviderThreadIds.has(event.providerThreadId) ||
+          (event.threadId !== undefined && ownsThread(event.threadId)),
+        state,
+      ];
     case "turn.terminal":
       return [event.providerTurnId === state.rootProviderTurnId, state];
   }

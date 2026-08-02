@@ -574,6 +574,7 @@ describe("orchestration V2 contracts", () => {
       checkpoints: [],
       contextHandoffs: [],
       contextTransfers: [],
+      goals: [],
       updatedAt: now,
     });
 

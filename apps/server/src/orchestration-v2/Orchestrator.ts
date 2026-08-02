@@ -1,6 +1,7 @@
 import {
   type ChatAttachment,
   CommandId,
+  GoalId,
   type ModelSelection,
   OrchestrationV2Command,
   type OrchestrationV2AppThread,
@@ -15,6 +16,7 @@ import {
   type OrchestrationV2ProviderTurn,
   type OrchestrationV2Run,
   type OrchestrationV2RunAttempt,
+  type OrchestrationV2ThreadGoal,
   type OrchestrationV2ThreadShell,
   type OrchestrationV2ThreadShellSnapshot,
   type OrchestrationV2StoredEvent,
@@ -26,6 +28,10 @@ import {
   ThreadId,
 } from "@piku/contracts";
 import { modelSelectionsEqual } from "@piku/shared/model";
+import {
+  activeThreadGoal,
+  settleThreadGoalActiveTurn as settleGoalActiveTurn,
+} from "@piku/shared/threadGoal";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -212,6 +218,8 @@ function commandThreadId(command: OrchestrationV2Command): ThreadId {
     case "runtime-request.respond":
     case "checkpoint.rollback":
     case "provider.switch":
+    case "thread.goal.set":
+    case "thread.goal.clear":
       return command.threadId;
     case "delegated_task.request":
     case "delegated_task.wake-policy":
@@ -1419,6 +1427,114 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         ]);
       }
     }
+  });
+
+  const dispatchThreadGoal = Effect.fn("orchestrationV2.dispatch.threadGoal")(function* (
+    command: Extract<
+      OrchestrationV2Command,
+      { readonly type: "thread.goal.set" | "thread.goal.clear" }
+    >,
+    events: Ref.Ref<Array<OrchestrationV2DomainEvent>>,
+  ) {
+    const projection = yield* projectionStore
+      .getThreadProjection(command.threadId)
+      .pipe(
+        Effect.mapError(
+          (cause) => new OrchestratorProjectionError({ threadId: command.threadId, cause }),
+        ),
+      );
+    const thread = projection.thread;
+    if (thread.deletedAt !== null || thread.archivedAt !== null) {
+      return yield* new OrchestratorDispatchError({
+        commandId: command.commandId,
+        commandType: command.type,
+        cause: `Thread ${command.threadId} is ${thread.deletedAt !== null ? "deleted" : "archived"} and cannot track goals.`,
+      });
+    }
+    const now = yield* DateTime.now;
+    const emitEvent = emit(events, command);
+    const active = activeThreadGoal(projection.goals);
+    const emitGoal = (goal: OrchestrationV2ThreadGoal) =>
+      emitEvent({
+        type: "goal.updated",
+        threadId: command.threadId,
+        providerInstanceId: thread.providerInstanceId,
+        occurredAt: now,
+        payload: goal,
+      });
+
+    if (command.type === "thread.goal.clear") {
+      if (active === null) {
+        return yield* new OrchestratorDispatchError({
+          commandId: command.commandId,
+          commandType: command.type,
+          cause: `Thread ${command.threadId} has no active goal to clear.`,
+        });
+      }
+      yield* emitGoal({ ...settleGoalActiveTurn(active, now), clearedAt: now, updatedAt: now });
+      return;
+    }
+
+    if (command.objective !== undefined) {
+      if (active !== null) {
+        yield* emitGoal({
+          ...settleGoalActiveTurn(active, now),
+          statusReason: "Superseded by a new goal",
+          clearedAt: now,
+          updatedAt: now,
+        });
+      }
+      const status = command.status ?? "active";
+      yield* emitGoal({
+        id: GoalId.make(`goal:${command.commandId}`),
+        threadId: command.threadId,
+        objective: command.objective,
+        status,
+        statusReason: command.statusReason ?? null,
+        tokenBudget: command.tokenBudget ?? null,
+        tokensUsed: 0,
+        timeUsedSeconds: 0,
+        activeTurn: null,
+        createdAt: now,
+        updatedAt: now,
+        completedAt: status === "complete" ? now : null,
+        clearedAt: null,
+      });
+      return;
+    }
+
+    if (active === null) {
+      return yield* new OrchestratorDispatchError({
+        commandId: command.commandId,
+        commandType: command.type,
+        cause: `Thread ${command.threadId} has no active goal to update. Set one with an objective first.`,
+      });
+    }
+    const status = command.status ?? active.status;
+    // Pausing or completing stops the clock: settle the open turn's elapsed
+    // time so idle or paused wall time never charges the goal.
+    const settled =
+      status === "paused" || status === "complete" ? settleGoalActiveTurn(active, now) : active;
+    const merged: OrchestrationV2ThreadGoal = {
+      ...settled,
+      status,
+      statusReason:
+        command.statusReason !== undefined
+          ? command.statusReason
+          : command.status !== undefined && command.status !== active.status
+            ? null
+            : settled.statusReason,
+      tokenBudget: command.tokenBudget === undefined ? settled.tokenBudget : command.tokenBudget,
+      completedAt: status === "complete" ? (settled.completedAt ?? now) : null,
+      updatedAt: now,
+    };
+    yield* emitGoal(
+      merged.status === "active" &&
+        merged.tokenBudget !== null &&
+        merged.tokensUsed >= merged.tokenBudget
+        ? { ...merged, status: "budgetLimited", statusReason: "Token budget reached" }
+        : merged,
+    );
   });
 
   const dispatchProviderSessionDetach = Effect.fn("orchestrationV2.dispatch.providerSessionDetach")(
@@ -5758,6 +5874,10 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         break;
       case "thread.created.record":
         yield* dispatchCreatedThreadRecord(command, events);
+        break;
+      case "thread.goal.set":
+      case "thread.goal.clear":
+        yield* dispatchThreadGoal(command, events);
         break;
       default:
         return yield* dispatchUnsupported(command);

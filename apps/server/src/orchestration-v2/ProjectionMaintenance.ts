@@ -148,6 +148,7 @@ export const layer: Layer.Layer<
       const events = yield* readAllEvents;
       yield* sql.withTransaction(
         Effect.gen(function* () {
+          yield* sql`DELETE FROM orchestration_v2_projection_goals`;
           yield* sql`DELETE FROM orchestration_v2_projection_context_transfers`;
           yield* sql`DELETE FROM orchestration_v2_projection_context_handoffs`;
           yield* sql`DELETE FROM orchestration_v2_projection_checkpoints`;

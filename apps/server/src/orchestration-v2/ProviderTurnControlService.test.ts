@@ -120,6 +120,7 @@ function makeProjection(input: {
     checkpoints: [],
     contextHandoffs: [],
     contextTransfers: [],
+    goals: [],
     visibleTurnItems: [],
     updatedAt: input.now,
   };

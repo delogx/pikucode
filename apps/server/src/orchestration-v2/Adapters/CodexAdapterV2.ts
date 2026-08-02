@@ -18,6 +18,7 @@ import type {
   OrchestrationV2PlanStep,
   OrchestrationV2RuntimeRequest,
   OrchestrationV2Subagent,
+  OrchestrationV2TokenUsageBreakdown,
   OrchestrationV2TurnItem,
   ProviderUserInputAnswers,
   ProviderApprovalDecision,
@@ -249,6 +250,19 @@ function codexUserMessageText(
     .flatMap((item) => (item.type === "text" ? [item.text] : []))
     .join("\n")
     .trim();
+}
+
+function codexUsageBreakdown(
+  usage: CodexSchema.V2ThreadTokenUsageUpdatedNotification__TokenUsageBreakdown,
+): OrchestrationV2TokenUsageBreakdown {
+  const count = (value: number | null | undefined) => Math.max(0, Math.trunc(value ?? 0));
+  return {
+    inputTokens: count(usage.inputTokens) + count(usage.cacheWriteInputTokens),
+    cachedInputTokens: count(usage.cachedInputTokens),
+    outputTokens: count(usage.outputTokens),
+    reasoningOutputTokens: count(usage.reasoningOutputTokens),
+    totalTokens: count(usage.totalTokens),
+  };
 }
 
 function mapCodexTurnStatus(
@@ -3187,6 +3201,25 @@ export function makeCodexAdapterV2(adapterOptions: CodexAdapterV2Options): Provi
               startedAt: codexTimestamp(payload.turn.startedAt),
             });
           }).pipe(Effect.orDie, turnTerminalizationPermit.withPermits(1)),
+        );
+
+        yield* client.handleServerNotification("thread/tokenUsage/updated", (payload) =>
+          Effect.gen(function* () {
+            const context = yield* awaitActiveTurn(payload.turnId);
+            if (context === undefined) {
+              return;
+            }
+            // `last` is the in-flight turn's cumulative usage, which is what
+            // goal accounting folds; `total` spans the whole native thread.
+            yield* emitProviderEvent({
+              type: "token_usage.updated",
+              driver: CODEX_PROVIDER,
+              threadId: context.projectionThreadId,
+              providerThreadId: context.providerThread.id,
+              providerTurnId: context.providerTurnId,
+              tokens: codexUsageBreakdown(payload.tokenUsage.last),
+            });
+          }).pipe(Effect.orDie),
         );
 
         yield* client.handleServerNotification("error", (payload) =>

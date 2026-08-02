@@ -49,6 +49,10 @@ The goal card ships in nine display styles — from a one-line ledger strip to a
 ring gauge, segment bar, and status trail. Pick one from the card's `…` menu under **Display
 style**; the choice is per device and applies immediately.
 
+The default ledger strip uses the same status indicators as thread rows elsewhere in the app: a
+dashed-circle **Working** counter in sky while a turn runs, a circled-check **Done** in emerald
+once the objective is marked complete, and the matching paused/alert treatments in between.
+
 ## What counts as usage
 
 Tokens count everything the provider processed for the thread's turns while the goal was

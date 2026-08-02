@@ -58,6 +58,65 @@ export const GOAL_STATUS_TONE_COLOR_VAR: Record<GoalStatusTone, string> = {
   success: "var(--success-foreground)",
 };
 
+export type GoalLedgerStatusIcon = "working" | "done" | "paused" | "alert";
+
+export interface GoalLedgerStatus {
+  readonly label: string;
+  readonly icon: GoalLedgerStatusIcon;
+  /**
+   * Sidebar status hues, verbatim (SidebarV2 topStatus): sky working, emerald
+   * done, amber/red alerts — so a goal reads the same color as the thread row
+   * that carries it.
+   */
+  readonly className: string;
+  readonly pulse: boolean;
+}
+
+export function goalLedgerStatus(
+  status: OrchestrationV2ThreadGoalStatus,
+  working: boolean,
+): GoalLedgerStatus {
+  switch (status) {
+    case "active":
+      return {
+        label: working ? "Working" : "Active",
+        icon: "working",
+        className: "text-sky-600 dark:text-sky-400",
+        pulse: working,
+      };
+    case "paused":
+      return { label: "Paused", icon: "paused", className: "text-muted-foreground", pulse: false };
+    case "blocked":
+      return {
+        label: "Blocked",
+        icon: "alert",
+        className: "text-amber-700 dark:text-amber-300",
+        pulse: false,
+      };
+    case "usageLimited":
+      return {
+        label: "Usage limit",
+        icon: "alert",
+        className: "text-amber-700 dark:text-amber-300",
+        pulse: false,
+      };
+    case "budgetLimited":
+      return {
+        label: "Budget hit",
+        icon: "alert",
+        className: "text-red-700 dark:text-red-300",
+        pulse: false,
+      };
+    case "complete":
+      return {
+        label: "Done",
+        icon: "done",
+        className: "text-emerald-700 dark:text-emerald-300",
+        pulse: false,
+      };
+  }
+}
+
 export function formatGoalTokens(value: number): string {
   return formatContextWindowTokens(value);
 }

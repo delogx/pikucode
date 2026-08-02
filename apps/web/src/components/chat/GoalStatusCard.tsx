@@ -1,6 +1,17 @@
 import type { OrchestrationV2ThreadGoal } from "@piku/contracts";
 import { threadGoalElapsedSeconds } from "@piku/shared/threadGoal";
-import { CheckIcon, EllipsisIcon, PauseIcon, PlayIcon, TargetIcon, XIcon } from "lucide-react";
+import {
+  CheckIcon,
+  CircleAlertIcon,
+  CircleCheckIcon,
+  CircleDashedIcon,
+  CirclePauseIcon,
+  EllipsisIcon,
+  PauseIcon,
+  PlayIcon,
+  TargetIcon,
+  XIcon,
+} from "lucide-react";
 import {
   useEffect,
   useState,
@@ -22,6 +33,8 @@ import {
 } from "../ui/menu";
 import {
   DEFAULT_GOAL_UI_VARIANT,
+  goalLedgerStatus,
+  type GoalLedgerStatusIcon,
   GOAL_STATUS_TONE_COLOR_VAR,
   GOAL_STATUS_TONE_DOT_CLASS,
   GOAL_STATUS_TONE_TEXT_CLASS,
@@ -222,27 +235,47 @@ function StatusDot(props: { toneDot: string; working: boolean; className?: strin
   );
 }
 
-/* 1 — Ledger strip: one quiet dense line, hairline budget burn underneath. */
+const LEDGER_STATUS_ICONS: Record<GoalLedgerStatusIcon, ComponentType<{ className?: string }>> = {
+  working: CircleDashedIcon,
+  done: CircleCheckIcon,
+  paused: CirclePauseIcon,
+  alert: CircleAlertIcon,
+};
+
+/*
+ * 1 — Ledger strip: one quiet dense line, hairline budget burn underneath.
+ * The status cluster borrows the sidebar thread row's grammar verbatim —
+ * dashed-circle "Working Ns" in sky, circled-check "Done" in emerald — so a
+ * goal reads the same as the thread status everywhere else in the app.
+ */
 function LedgerVariant(context: GoalRenderContext) {
+  const status = goalLedgerStatus(context.goal.status, context.working);
+  const StatusIcon = LEDGER_STATUS_ICONS[status.icon];
   return (
     <div className="rounded-xl border border-border/60 bg-card/80 shadow-xs">
       <div className="flex items-center gap-2.5 px-3 py-2">
-        <StatusDot toneDot={context.toneDot} working={context.working} />
         <span
           className="min-w-0 flex-1 truncate font-medium text-[13px] text-foreground"
           title={context.goal.objective}
         >
           {context.goal.objective}
         </span>
-        <span className={cn("shrink-0 text-[11px] font-medium", context.toneText)}>
-          {context.statusLabel}
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1 text-xs font-medium",
+            status.className,
+            status.pulse && "animate-sidebar-working-text motion-reduce:animate-none",
+          )}
+        >
+          <StatusIcon aria-hidden className="size-4 shrink-0" />
+          <span role="status">{status.label}</span>
+          <span aria-hidden className="tabular-nums">
+            {context.timeLabel}
+          </span>
         </span>
         <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
           {context.tokensLabel}
           {context.budgetLabel === null ? " tok" : ` / ${context.budgetLabel} tok`}
-        </span>
-        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-          {context.timeLabel}
         </span>
         {context.menu}
       </div>

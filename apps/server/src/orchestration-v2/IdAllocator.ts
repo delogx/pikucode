@@ -174,6 +174,15 @@ export interface IdAllocatorV2DeriveShape {
     readonly driver: ProviderDriverKind;
     readonly nativeItemId: string;
   }) => TurnItemId;
+  /**
+   * For providers whose plan artifact is derived from a provider item rather
+   * than announced with an id of its own, so repeated snapshots of the same
+   * item keep one plan identity without carrying allocation state.
+   */
+  readonly planFromProviderItem: (input: {
+    readonly driver: ProviderDriverKind;
+    readonly nativeItemId: string;
+  }) => PlanId;
   readonly approvalNode: (input: { readonly requestId: RuntimeRequestId }) => NodeId;
   readonly approvalTurnItem: (input: { readonly requestId: RuntimeRequestId }) => TurnItemId;
 }
@@ -399,6 +408,8 @@ export const layer: Layer.Layer<IdAllocatorV2> = Layer.succeed(
         TurnItemId.make(
           joinId("turn-item", "provider", input.driver, "native-item", input.nativeItemId),
         ),
+      planFromProviderItem: (input) =>
+        PlanId.make(joinId("plan", "provider", input.driver, "native-item", input.nativeItemId)),
       approvalNode: (input) => NodeId.make(joinId("node", "runtime-request", input.requestId)),
       approvalTurnItem: (input) =>
         TurnItemId.make(joinId("turn-item", "runtime-request", input.requestId)),

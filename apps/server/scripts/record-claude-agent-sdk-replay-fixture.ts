@@ -17,6 +17,7 @@ import type { RuntimePolicyV2Override } from "../src/orchestration-v2/RuntimePol
 import { makeCheckpointWorkspace } from "../src/orchestration-v2/testkit/ReplayFixtureWorkspace.ts";
 import { CLAUDE_MODEL_SELECTION } from "../src/orchestration-v2/testkit/fixtures/shared.ts";
 import {
+  CLAUDE_TODO_LIST_PROMPT,
   MESSAGE_STEERING_INITIAL_PROMPT,
   MULTI_TURN_FIRST_PROMPT,
   MESSAGE_STEERING_STEER_PROMPT,
@@ -142,6 +143,12 @@ const CLAUDE_RECORDINGS = {
     queryMode: "streaming",
     enableTools: true,
     runtimePolicyOverride: RESTRICTED_GRANULAR_POLICY,
+  },
+  claude_todo_list: {
+    prompts: [CLAUDE_TODO_LIST_PROMPT],
+    defaultTranscriptFile: "fixtures/claude_todo_list/claude_transcript.ndjson",
+    queryMode: "streaming",
+    enableTools: true,
   },
   web_search: {
     prompts: [WEB_SEARCH_PROMPT],
@@ -365,7 +372,10 @@ const cwd =
     : await makeCheckpointWorkspace(`claude-agent-sdk-record-${scenario}`));
 const shouldRemoveCwd = process.env.PIKU_CLAUDE_REPLAY_CWD === undefined;
 
-if (shouldRemoveCwd && (scenario === "tool_call_read_only" || scenario === "subagent")) {
+if (
+  shouldRemoveCwd &&
+  (scenario === "tool_call_read_only" || scenario === "subagent" || scenario === "claude_todo_list")
+) {
   await runFileSystem(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

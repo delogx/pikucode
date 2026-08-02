@@ -541,6 +541,8 @@ type PlanArtifact = {
 
 Codex `turn/plan/updated` maps to a `todo_list` artifact. Plan-mode final plan items map to `proposed_plan`. User-input question requests map to `questions` plus a `RuntimeRequest`.
 
+Claude has no plan protocol, so its task tools carry the same signal: `TaskCreate` adds a step, `TaskUpdate` moves one through `pending -> running -> completed` (or deletes it), `TaskList`/`TaskGet` supply the authoritative snapshot, and an older build's single `TodoWrite` snapshot replaces the whole list. The adapter folds them into one `todo_list` artifact per turn per thread instead of projecting a tool call each.
+
 ## Checkpoint
 
 Checkpoints attach to checkpoint scopes. A root run checkpoint is the user-visible conversation checkpoint. A child checkpoint records nested filesystem state for a subagent, tool, or provider thread without advancing the parent run count.

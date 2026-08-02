@@ -204,6 +204,7 @@ export type ThreadGoalSlashCommand =
       readonly objective: string;
       readonly tokenBudget: number | null;
     }
+  | { readonly action: "block"; readonly reason: string | null }
   | { readonly action: "pause" | "resume" | "done" | "clear" | "show" };
 
 /**
@@ -211,6 +212,7 @@ export type ThreadGoalSlashCommand =
  *
  *   /goal Ship the login fix --budget 50k
  *   /goal pause | resume | done | clear
+ *   /goal block [waiting on design review]
  *   /goal            (show current goal)
  *
  * Returns null when the text is not a /goal command at all.
@@ -227,6 +229,11 @@ export function parseThreadGoalSlashCommand(text: string): ThreadGoalSlashComman
   const verb = remainder.toLowerCase();
   if (verb === "pause" || verb === "resume" || verb === "done" || verb === "clear") {
     return { action: verb };
+  }
+  const blockMatch = /^block(?:\s+([\s\S]+))?$/i.exec(remainder);
+  if (blockMatch) {
+    const reason = blockMatch[1]?.trim();
+    return { action: "block", reason: reason === undefined || reason.length === 0 ? null : reason };
   }
   let tokenBudget: number | null = null;
   const objective = remainder

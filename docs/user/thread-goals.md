@@ -25,7 +25,9 @@ turn completes, and elapsed time ticks in real time whenever a turn is charging 
 ## Controlling a goal
 
 - `/goal pause` — suspend tracking. Paused wall time and tokens are not charged to the goal.
-- `/goal resume` — resume tracking.
+- `/goal block [reason]` — flag the goal as waiting on something outside the agent. Unlike
+  pause, a blocked goal keeps counting any work that still happens.
+- `/goal resume` — return a paused, blocked, or limited goal to active tracking.
 - `/goal done` — mark the objective complete.
 - `/goal clear` — remove the goal from the card (history is preserved).
 - `/goal` — with no arguments, points you at the current goal.

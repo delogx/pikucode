@@ -4980,14 +4980,16 @@ function ChatViewContent(props: ChatViewProps) {
                       objective: command.objective,
                       ...(command.tokenBudget === null ? {} : { tokenBudget: command.tokenBudget }),
                     }
-                  : {
-                      status:
-                        command.action === "pause"
-                          ? ("paused" as const)
-                          : command.action === "resume"
-                            ? ("active" as const)
-                            : ("complete" as const),
-                    }),
+                  : command.action === "block"
+                    ? { status: "blocked" as const, statusReason: command.reason }
+                    : {
+                        status:
+                          command.action === "pause"
+                            ? ("paused" as const)
+                            : command.action === "resume"
+                              ? ("active" as const)
+                              : ("complete" as const),
+                      }),
               },
             });
       if (result._tag === "Failure") {

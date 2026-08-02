@@ -201,6 +201,14 @@ describe("parseThreadGoalSlashCommand", () => {
     });
   });
 
+  it("parses block with an optional reason", () => {
+    expect(parseThreadGoalSlashCommand("/goal block waiting on design review")).toEqual({
+      action: "block",
+      reason: "waiting on design review",
+    });
+    expect(parseThreadGoalSlashCommand("/goal block")).toEqual({ action: "block", reason: null });
+  });
+
   it("parses control verbs and bare /goal", () => {
     expect(parseThreadGoalSlashCommand("/goal pause")).toEqual({ action: "pause" });
     expect(parseThreadGoalSlashCommand("/goal resume")).toEqual({ action: "resume" });
